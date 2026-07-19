@@ -29,7 +29,13 @@ type DragPreview = {
 type TransientPatch = Partial<
   Pick<
     RoomState,
-    'selectedItemId' | 'placingCatalogId' | 'draggingItemId' | 'dragPreview' | 'cameraZoom'
+    | 'selectedItemId'
+    | 'placingCatalogId'
+    | 'draggingItemId'
+    | 'dragPreview'
+    | 'cameraZoom'
+    | 'isCaptureClean'
+    | 'readyModelItemIds'
   >
 >;
 
@@ -42,6 +48,8 @@ export type RoomState = RoomSnapshot & {
   draggingItemId: string | null;
   dragPreview: DragPreview | null;
   cameraZoom: number;
+  isCaptureClean: boolean;
+  readyModelItemIds: string[];
   setFloorColor: (color: string) => void;
   setWallColor: (color: string) => void;
   setAccentColor: (color: string) => void;
@@ -63,6 +71,8 @@ export type RoomState = RoomSnapshot & {
   hydrateRoom: (snapshot: RoomSnapshot) => void;
   finishHydration: () => void;
   setCameraZoom: (zoom: number) => void;
+  setCaptureClean: (clean: boolean) => void;
+  markModelReady: (placedItemId: string) => void;
 };
 
 const HISTORY_LIMIT = 50;
@@ -145,6 +155,7 @@ const clearEditorPatch: TransientPatch = {
   placingCatalogId: null,
   draggingItemId: null,
   dragPreview: null,
+  isCaptureClean: false,
 };
 
 export const useRoomStore = create<RoomState>((set, get) => {
@@ -175,6 +186,8 @@ export const useRoomStore = create<RoomState>((set, get) => {
     draggingItemId: null,
     dragPreview: null,
     cameraZoom: 72,
+    isCaptureClean: false,
+    readyModelItemIds: [],
     setFloorColor: (floorColor) => commitRoom({ ...readRoomSnapshot(get()), floorColor }),
     setWallColor: (wallColor) => commitRoom({ ...readRoomSnapshot(get()), wallColor }),
     setAccentColor: (accentColor) => commitRoom({ ...readRoomSnapshot(get()), accentColor }),
@@ -281,7 +294,10 @@ export const useRoomStore = create<RoomState>((set, get) => {
           ...readRoomSnapshot(state),
           placedItems: state.placedItems.filter((item) => item.id !== state.selectedItemId).map((item) => ({ ...item })),
         },
-        clearEditorPatch,
+        {
+          ...clearEditorPatch,
+          readyModelItemIds: state.readyModelItemIds.filter((id) => id !== state.selectedItemId),
+        },
       );
     },
     undo: () => {
@@ -289,11 +305,13 @@ export const useRoomStore = create<RoomState>((set, get) => {
       const target = state.past.at(-1);
       if (!target) return false;
       const current = readRoomSnapshot(state);
+      const targetIds = new Set(target.placedItems.map((item) => item.id));
       set({
         ...cloneRoomSnapshot(target),
         ...clearEditorPatch,
         past: state.past.slice(0, -1),
         future: [current, ...state.future].slice(0, HISTORY_LIMIT),
+        readyModelItemIds: state.readyModelItemIds.filter((id) => targetIds.has(id)),
       });
       return true;
     },
@@ -302,11 +320,13 @@ export const useRoomStore = create<RoomState>((set, get) => {
       const target = state.future[0];
       if (!target) return false;
       const current = readRoomSnapshot(state);
+      const targetIds = new Set(target.placedItems.map((item) => item.id));
       set({
         ...cloneRoomSnapshot(target),
         ...clearEditorPatch,
         past: [...state.past, current].slice(-HISTORY_LIMIT),
         future: state.future.slice(1),
+        readyModelItemIds: state.readyModelItemIds.filter((id) => targetIds.has(id)),
       });
       return true;
     },
@@ -317,8 +337,20 @@ export const useRoomStore = create<RoomState>((set, get) => {
         past: [],
         future: [],
         isHydrated: true,
+        readyModelItemIds: [],
       }),
     finishHydration: () => set({ isHydrated: true }),
     setCameraZoom: (cameraZoom) => set({ cameraZoom }),
+    setCaptureClean: (isCaptureClean) => set({ isCaptureClean }),
+    markModelReady: (placedItemId) =>
+      set((state) => {
+        if (
+          state.readyModelItemIds.includes(placedItemId) ||
+          !state.placedItems.some((item) => item.id === placedItemId)
+        ) {
+          return state;
+        }
+        return { readyModelItemIds: [...state.readyModelItemIds, placedItemId] };
+      }),
   };
 });

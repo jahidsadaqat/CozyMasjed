@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber/native';
 import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { RoomScene } from './RoomScene';
 import {
@@ -43,13 +43,13 @@ export function RoomCanvas() {
           orthographic
           camera={{ position: [5.8, 5.2, 6.4], zoom: 72, near: 0.1, far: 100 }}
           frameloop="demand"
-          gl={{ antialias: true, alpha: true }}
+          gl={{ antialias: true, alpha: false, preserveDrawingBuffer: Platform.OS === 'web' }}
           shadows={false}
           pointerEvents="none"
           style={styles.canvas}
           onCreated={(state) => {
             state.camera.lookAt(0, 0.52, 0);
-            state.gl.setClearColor(0x000000, 0);
+            state.gl.setClearColor(0x000000, 1);
             setEditorRootState(state);
           }}
         >

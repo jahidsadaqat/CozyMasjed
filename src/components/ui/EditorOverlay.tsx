@@ -24,11 +24,12 @@ import {
   X,
 } from 'lucide-react-native';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { catalog, catalogById } from '../../catalog/catalog';
 import type { CatalogCategory, CatalogItem } from '../../catalog/types';
+import { captureSaveAndShareRoom } from '../../services/roomSnapshot';
 import { useRoomStore } from '../../store/roomStore';
 import { floorSwatches, palette, wallSwatches } from '../../theme/palette';
 
@@ -69,19 +70,27 @@ function PillButton({
   label,
   icon,
   active = false,
+  disabled = false,
   onPress,
 }: {
   label: string;
   icon: ReactNode;
   active?: boolean;
+  disabled?: boolean;
   onPress: () => void;
 }) {
   return (
     <Pressable
       accessibilityLabel={label}
       accessibilityRole="button"
+      disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.pillButton, active && styles.pillButtonActive, pressed && styles.buttonPressed]}
+      style={({ pressed }) => [
+        styles.pillButton,
+        active && styles.pillButtonActive,
+        disabled && styles.disabled,
+        pressed && styles.buttonPressed,
+      ]}
     >
       {icon}
       <Text style={[styles.pillLabel, active && styles.pillLabelActive]}>{label}</Text>
@@ -271,8 +280,12 @@ function SelectedItemActions() {
 export function EditorOverlay() {
   const [panel, setPanel] = useState<OpenPanel>(null);
   const [immersive, setImmersive] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [notice, setNotice] = useState<{ title: string; message: string } | null>(null);
   const selectedItemId = useRoomStore((state) => state.selectedItemId);
   const placingCatalogId = useRoomStore((state) => state.placingCatalogId);
+  const placedItems = useRoomStore((state) => state.placedItems);
+  const readyModelItemIds = useRoomStore((state) => state.readyModelItemIds);
   const lighting = useRoomStore((state) => state.lighting);
   const canUndo = useRoomStore((state) => state.past.length > 0);
   const canRedo = useRoomStore((state) => state.future.length > 0);
@@ -281,7 +294,10 @@ export function EditorOverlay() {
   const toggleLighting = useRoomStore((state) => state.toggleLighting);
   const undo = useRoomStore((state) => state.undo);
   const redo = useRoomStore((state) => state.redo);
+  const cancelDrag = useRoomStore((state) => state.cancelDrag);
+  const setCaptureClean = useRoomStore((state) => state.setCaptureClean);
   const placingItem = placingCatalogId ? catalogById[placingCatalogId] : null;
+  const modelsReady = placedItems.every((item) => readyModelItemIds.includes(item.id));
 
   const closePanel = () => setPanel(null);
   const handleBack = () => {
@@ -289,6 +305,48 @@ export function EditorOverlay() {
     if (placingCatalogId) return cancelPlacement();
     if (selectedItemId) return selectItem(null);
   };
+
+  const handleSnap = async () => {
+    if (isCapturing || !modelsReady) return;
+    setPanel(null);
+    cancelDrag();
+    setCaptureClean(true);
+    setIsCapturing(true);
+
+    let successMessage: string | null = null;
+    let failureMessage: string | null = null;
+    try {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const result = await captureSaveAndShareRoom();
+      if (result.downloaded) {
+        successMessage = 'Your room image was downloaded.';
+      } else if (result.savedToLibrary && result.shared) {
+        successMessage = 'Saved to Photos and opened the share sheet.';
+      } else if (result.saveFailed && result.shared) {
+        successMessage = 'The share sheet opened, but the image could not be saved to Photos.';
+      } else if (result.saveFailed) {
+        failureMessage = 'The image was created, but it could not be saved to Photos.';
+      } else if (result.shared && result.permissionDenied) {
+        successMessage = 'The share sheet opened. Photos access was not granted, so the image was not saved.';
+      } else if (result.shared) {
+        successMessage = 'The share sheet opened with your room image.';
+      } else if (result.savedToLibrary) {
+        successMessage = 'Your Deen Room was saved to Photos.';
+      }
+    } catch (error) {
+      failureMessage = error instanceof Error ? error.message : 'The room image could not be created.';
+    } finally {
+      setCaptureClean(false);
+      setIsCapturing(false);
+    }
+
+    if (failureMessage) setNotice({ title: 'Could not capture the room', message: failureMessage });
+    else if (successMessage) setNotice({ title: 'Room captured', message: successMessage });
+    setTimeout(() => setNotice(null), 3_200);
+  };
+
+  if (isCapturing) return null;
 
   if (immersive) {
     return (
@@ -359,10 +417,17 @@ export function EditorOverlay() {
           />
           <PillButton
             label="Snap"
+            disabled={!modelsReady}
             icon={<Camera color={palette.ink} size={20} />}
-            onPress={() => Alert.alert('Snap is almost ready', 'Photo saving and sharing is wired in the final MVP milestone.')}
+            onPress={() => void handleSnap()}
           />
         </View>
+
+        {!modelsReady ? (
+          <View style={styles.modelLoadingHint}>
+            <Text style={styles.modelLoadingText}>Preparing your 3D items…</Text>
+          </View>
+        ) : null}
 
         {!panel ? <SelectedItemActions /> : null}
         {placingItem && !panel ? (
@@ -383,6 +448,15 @@ export function EditorOverlay() {
 
       {panel === 'catalog' ? <CatalogSheet onClose={closePanel} /> : null}
       {panel === 'style' ? <StylePanel onClose={closePanel} /> : null}
+      {notice ? (
+        <Animated.View entering={FadeInDown.duration(180)} exiting={FadeOutDown.duration(150)} pointerEvents="none" style={styles.notice}>
+          <Camera color={palette.gold} size={22} />
+          <View style={styles.noticeCopy}>
+            <Text style={styles.noticeTitle}>{notice.title}</Text>
+            <Text style={styles.noticeMessage}>{notice.message}</Text>
+          </View>
+        </Animated.View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -489,6 +563,18 @@ const styles = StyleSheet.create({
     padding: 11,
     backgroundColor: 'rgba(246, 244, 239, 0.97)',
     ...softShadow,
+  },
+  modelLoadingHint: {
+    marginTop: 9,
+    borderRadius: 14,
+    paddingHorizontal: 13,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(246, 244, 239, 0.9)',
+  },
+  modelLoadingText: {
+    color: palette.inkMuted,
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 11,
   },
   hintDot: {
     width: 32,
@@ -661,5 +747,34 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(78,59,49,0.12)',
+  },
+  notice: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    bottom: 22,
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    paddingHorizontal: 17,
+    paddingVertical: 12,
+    borderRadius: 22,
+    backgroundColor: 'rgba(78, 59, 49, 0.96)',
+    ...softShadow,
+  },
+  noticeCopy: {
+    flex: 1,
+  },
+  noticeTitle: {
+    color: palette.cream,
+    fontFamily: 'Nunito_800ExtraBold',
+    fontSize: 14,
+  },
+  noticeMessage: {
+    color: '#E8DCCB',
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 11,
+    lineHeight: 14,
   },
 });

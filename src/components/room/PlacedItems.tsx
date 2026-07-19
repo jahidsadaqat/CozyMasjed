@@ -43,6 +43,10 @@ export function PlacedItems() {
   const items = useRoomStore((state) => state.placedItems);
   const selectedItemId = useRoomStore((state) => state.selectedItemId);
   const dragPreview = useRoomStore((state) => state.dragPreview);
+  const isCaptureClean = useRoomStore((state) => state.isCaptureClean);
+  const activePointLightIds = new Set(
+    items.filter((item) => catalogById[item.catalogId]?.emitsLight).slice(0, 3).map((item) => item.id),
+  );
 
   return (
     <group>
@@ -55,11 +59,14 @@ export function PlacedItems() {
         const selected = selectedItemId === item.id;
         return (
           <group key={item.id}>
-            {selected ? <SelectionFootprint item={item} invalid={isDragging && !dragPreview.valid} /> : null}
+            {selected && !isCaptureClean ? (
+              <SelectionFootprint item={item} invalid={isDragging && !dragPreview.valid} />
+            ) : null}
             <Suspense fallback={null}>
               <CatalogModel
                 item={catalogItem}
                 placedItemId={item.id}
+                enablePointLight={activePointLightIds.has(item.id)}
                 position={position}
                 rotation={modelRotation(item)}
               />

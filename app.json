@@ -27,7 +27,18 @@
     "plugins": [
       "expo-asset",
       "expo-font",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": false,
+          "savePhotosPermission": "Allow Deen Rooms to save pictures of your rooms.",
+          "granularPermissions": [
+            "photo"
+          ],
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
     ]
   }
 }

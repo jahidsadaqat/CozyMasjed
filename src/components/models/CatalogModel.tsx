@@ -11,6 +11,7 @@ type CatalogModelProps = {
   scale?: number;
   onReady?: (catalogId: string) => void;
   placedItemId?: string;
+  enablePointLight?: boolean;
 };
 
 export function CatalogModel({
@@ -20,6 +21,7 @@ export function CatalogModel({
   scale = item.modelScale,
   onReady,
   placedItemId,
+  enablePointLight = true,
 }: CatalogModelProps) {
   const gltf = useMeshoptGLTF(item.asset);
   const lighting = useRoomStore((state) => state.lighting);
@@ -49,10 +51,25 @@ export function CatalogModel({
 
   useEffect(() => {
     onReady?.(item.id);
+    if (placedItemId) useRoomStore.getState().markModelReady(placedItemId);
     if (__DEV__) {
       console.info(`[Deen Rooms] model ready: ${item.id}`);
     }
-  }, [item.id, onReady]);
+  }, [item.id, onReady, placedItemId]);
+
+  useEffect(() => {
+    if (!item.emitsLight) return;
+    normalizedScene.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach((material) => {
+        if (!(material instanceof THREE.MeshStandardMaterial)) return;
+        material.emissive.set(lighting === 'warm' ? '#B8682D' : '#000000');
+        material.emissiveIntensity = lighting === 'warm' ? 0.32 : 0;
+        material.needsUpdate = true;
+      });
+    });
+  }, [item.emitsLight, lighting, normalizedScene]);
 
   useEffect(() => {
     return () => {
@@ -67,7 +84,7 @@ export function CatalogModel({
   return (
     <group position={position} rotation={rotation} scale={scale} userData={{ catalogId: item.id, placedItemId }}>
       <primitive object={normalizedScene} dispose={null} />
-      {item.emitsLight && lighting === 'warm' ? (
+      {item.emitsLight && enablePointLight && lighting === 'warm' ? (
         <pointLight position={[0, 1.2, 0]} color="#FFC56E" intensity={1.25} distance={2.2} decay={2} />
       ) : null}
     </group>

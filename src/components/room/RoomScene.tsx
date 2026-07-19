@@ -3,6 +3,7 @@ import { useRoomStore } from '../../store/roomStore';
 import { ModelValidationScene } from '../models/ModelValidationScene';
 import { PlacedItems } from './PlacedItems';
 import { RoomShell } from './RoomShell';
+import { SceneBackdrop } from './SceneBackdrop';
 
 // Kept off in the product scene. Set true only while validating the complete asset pack.
 const SHOW_MODEL_VALIDATION_SCENE = false;
@@ -15,6 +16,7 @@ export function RoomScene() {
 
   return (
     <>
+      <SceneBackdrop lighting={lighting} />
       <ambientLight intensity={lighting === 'day' ? 1.75 : 0.92} color={lighting === 'day' ? '#FFF8E8' : '#E5B777'} />
       <directionalLight
         position={[4.5, 7, 5]}

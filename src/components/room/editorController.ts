@@ -46,6 +46,10 @@ export function setEditorRootState(state: RootState) {
   rootState = state;
 }
 
+export function getEditorRootState() {
+  return rootState;
+}
+
 export function handleEditorTap(x: number, y: number) {
   const hits = intersectionsAt(x, y);
   const placedId = findPlacedId(hits);
