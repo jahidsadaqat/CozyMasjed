@@ -6,12 +6,16 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SkyBackdrop } from './src/components/SkyBackdrop';
 import { RoomCanvas } from './src/components/room/RoomCanvas';
 import { EditorOverlay } from './src/components/ui/EditorOverlay';
+import { useRoomPersistence } from './src/store/roomPersistence';
+import { useRoomStore } from './src/store/roomStore';
 import { palette } from './src/theme/palette';
 
 export default function App() {
   const [fontsLoaded] = useFonts({ Nunito_700Bold, Nunito_800ExtraBold });
+  const isHydrated = useRoomStore((state) => state.isHydrated);
+  useRoomPersistence();
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !isHydrated) {
     return <View style={[styles.root, { backgroundColor: palette.cream }]} />;
   }
 

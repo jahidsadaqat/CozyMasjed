@@ -274,9 +274,13 @@ export function EditorOverlay() {
   const selectedItemId = useRoomStore((state) => state.selectedItemId);
   const placingCatalogId = useRoomStore((state) => state.placingCatalogId);
   const lighting = useRoomStore((state) => state.lighting);
+  const canUndo = useRoomStore((state) => state.past.length > 0);
+  const canRedo = useRoomStore((state) => state.future.length > 0);
   const selectItem = useRoomStore((state) => state.selectItem);
   const cancelPlacement = useRoomStore((state) => state.cancelPlacement);
   const toggleLighting = useRoomStore((state) => state.toggleLighting);
+  const undo = useRoomStore((state) => state.undo);
+  const redo = useRoomStore((state) => state.redo);
   const placingItem = placingCatalogId ? catalogById[placingCatalogId] : null;
 
   const closePanel = () => setPanel(null);
@@ -314,8 +318,24 @@ export function EditorOverlay() {
                 toggleLighting();
               }}
             />
-            <RoundButton label="Undo" disabled icon={<Undo2 color={palette.ink} size={21} />} onPress={() => {}} />
-            <RoundButton label="Redo" disabled icon={<Redo2 color={palette.ink} size={21} />} onPress={() => {}} />
+            <RoundButton
+              label="Undo"
+              disabled={!canUndo}
+              icon={<Undo2 color={palette.ink} size={21} />}
+              onPress={() => {
+                tapFeedback();
+                undo();
+              }}
+            />
+            <RoundButton
+              label="Redo"
+              disabled={!canRedo}
+              icon={<Redo2 color={palette.ink} size={21} />}
+              onPress={() => {
+                tapFeedback();
+                redo();
+              }}
+            />
             <RoundButton
               label="Enter fullscreen"
               icon={<Maximize2 color={palette.ink} size={20} />}
