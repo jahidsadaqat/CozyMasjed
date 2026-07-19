@@ -52,6 +52,7 @@ export function WelcomeGuide() {
         <View style={styles.guideList}>
           <GuideRow icon={<Plus color={palette.ink} size={19} />}>Choose Add, then tap the floor or a wall</GuideRow>
           <GuideRow icon={<Move color={palette.ink} size={19} />}>Tap furniture to select it, then drag to move</GuideRow>
+          <GuideRow icon={<Hand color={palette.ink} size={19} />}>Drag empty space to look around the room</GuideRow>
           <GuideRow icon={<ZoomIn color={palette.ink} size={19} />}>Pinch the room to zoom in and out</GuideRow>
           <GuideRow icon={<PaletteIcon color={palette.ink} size={19} />}>Use Style to change floors and walls</GuideRow>
         </View>

@@ -2,13 +2,34 @@ import type { RootState } from '@react-three/fiber';
 import * as THREE from 'three';
 import { catalogById } from '../../catalog/catalog';
 import type { PlacementSurface } from '../../catalog/types';
+import {
+  CAMERA_TARGET,
+  cameraPositionForYaw,
+  cameraYawFromDrag,
+  clampCameraZoom,
+  DEFAULT_CAMERA_YAW,
+  DEFAULT_CAMERA_ZOOM,
+} from '../../domain/camera';
 import { placementToWorld, worldToPlacement, type PlacedItem } from '../../domain/grid';
 import { useRoomStore } from '../../store/roomStore';
 
 let rootState: RootState | null = null;
-let pinchStartZoom = 72;
+let pinchStartZoom = DEFAULT_CAMERA_ZOOM;
+let currentCameraYaw = DEFAULT_CAMERA_YAW;
+const currentCameraTarget = new THREE.Vector3(...CAMERA_TARGET);
+const pinchAnchor = new THREE.Vector3();
+const pinchPlanePoint = new THREE.Vector3();
+const pinchPlaneNormal = new THREE.Vector3();
+const pinchTargetCandidate = new THREE.Vector3();
+const pinchPlane = new THREE.Plane();
+let hasPinchAnchor = false;
 let dragGrabOffset = new THREE.Vector3();
 let activeDragSurface: PlacementSurface | null = null;
+let preparedPan: { mode: 'item' | 'orbit'; x: number; y: number; placedId?: string } | null = null;
+let activePanMode: 'item' | 'orbit' | null = null;
+let orbitStartYaw = DEFAULT_CAMERA_YAW;
+let pinchActive = false;
+let suppressTapUntil = 0;
 
 function findTaggedParent(object: THREE.Object3D, key: 'placedItemId' | 'placementSurface') {
   let current: THREE.Object3D | null = object;
@@ -44,6 +65,22 @@ function surfaceHit(hits: THREE.Intersection[], accepted?: readonly PlacementSur
 
 export function setEditorRootState(state: RootState) {
   rootState = state;
+  const store = useRoomStore.getState();
+  currentCameraYaw = store.cameraYaw;
+  currentCameraTarget.fromArray(store.cameraTarget);
+  if (state.camera instanceof THREE.OrthographicCamera) {
+    const [x, y, z] = cameraPositionForYaw(currentCameraYaw, [
+      currentCameraTarget.x,
+      currentCameraTarget.y,
+      currentCameraTarget.z,
+    ]);
+    state.camera.position.set(x, y, z);
+    state.camera.zoom = store.cameraZoom;
+    state.camera.lookAt(currentCameraTarget);
+    state.camera.updateProjectionMatrix();
+    state.camera.updateMatrixWorld();
+    state.invalidate();
+  }
 }
 
 export function getEditorRootState() {
@@ -51,6 +88,7 @@ export function getEditorRootState() {
 }
 
 export function handleEditorTap(x: number, y: number) {
+  if (pinchActive || Date.now() < suppressTapUntil) return;
   const hits = intersectionsAt(x, y);
   const placedId = findPlacedId(hits);
   if (placedId) {
@@ -71,24 +109,24 @@ export function handleEditorTap(x: number, y: number) {
   store.selectItem(null);
 }
 
-export function beginEditorDrag(x: number, y: number) {
+function beginItemDrag(placedId: string, x: number, y: number) {
   const hits = intersectionsAt(x, y);
-  const placedId = findPlacedId(hits);
-  if (!placedId) return;
+  if (findPlacedId(hits) !== placedId) return false;
   const store = useRoomStore.getState();
   const placed = store.placedItems.find((item) => item.id === placedId);
-  if (!placed) return;
+  if (!placed) return false;
   const catalogItem = catalogById[placed.catalogId];
   const hit = surfaceHit(hits, [placed.surface]);
-  if (!catalogItem || !hit) return;
+  if (!catalogItem || !hit) return false;
   const [worldX, worldY, worldZ] = placementToWorld(placed, catalogItem);
   dragGrabOffset = hit.point.clone().sub(new THREE.Vector3(worldX, worldY, worldZ));
   if (placed.surface !== 'floor') dragGrabOffset.y = hit.point.y - worldY;
   activeDragSurface = placed.surface;
   store.beginDrag(placedId);
+  return true;
 }
 
-export function updateEditorDrag(x: number, y: number) {
+function updateItemDrag(x: number, y: number) {
   const store = useRoomStore.getState();
   const preview = store.dragPreview;
   if (!preview || !activeDragSurface) return;
@@ -105,24 +143,126 @@ export function updateEditorDrag(x: number, y: number) {
   store.previewMove(candidate);
 }
 
-export function finishEditorDrag() {
-  useRoomStore.getState().finishDrag();
+function clearItemDrag() {
   activeDragSurface = null;
   dragGrabOffset.set(0, 0, 0);
 }
 
-export function beginEditorPinch() {
+function applyCameraYaw(yaw: number) {
   if (!rootState) return;
-  pinchStartZoom = rootState.camera.zoom;
-  useRoomStore.getState().cancelDrag();
-  activeDragSurface = null;
+  currentCameraYaw = yaw;
+  const [x, y, z] = cameraPositionForYaw(yaw, [
+    currentCameraTarget.x,
+    currentCameraTarget.y,
+    currentCameraTarget.z,
+  ]);
+  rootState.camera.position.set(x, y, z);
+  rootState.camera.lookAt(currentCameraTarget);
+  rootState.camera.updateMatrixWorld();
+  rootState.invalidate();
 }
 
-export function updateEditorPinch(scale: number) {
+function saveCameraView() {
+  const store = useRoomStore.getState();
+  const zoom = rootState?.camera instanceof THREE.OrthographicCamera ? rootState.camera.zoom : store.cameraZoom;
+  store.setCameraView(zoom, currentCameraYaw, [
+    currentCameraTarget.x,
+    currentCameraTarget.y,
+    currentCameraTarget.z,
+  ]);
+}
+
+function pointOnCameraPlane(x: number, y: number, target: THREE.Vector3, result: THREE.Vector3) {
+  if (!rootState) return false;
+  rootState.pointer.set((x / rootState.size.width) * 2 - 1, -(y / rootState.size.height) * 2 + 1);
+  rootState.raycaster.setFromCamera(rootState.pointer, rootState.camera);
+  rootState.camera.getWorldDirection(pinchPlaneNormal);
+  pinchPlane.setFromNormalAndCoplanarPoint(pinchPlaneNormal, target);
+  return rootState.raycaster.ray.intersectPlane(pinchPlane, result) !== null;
+}
+
+function keepTargetInsideRoom(target: THREE.Vector3) {
+  target.x = THREE.MathUtils.clamp(target.x, -0.82, 0.82);
+  target.y = THREE.MathUtils.clamp(target.y, 0.22, 0.92);
+  target.z = THREE.MathUtils.clamp(target.z, -0.82, 0.82);
+}
+
+export function prepareEditorPan(x: number, y: number) {
+  if (pinchActive) return;
+  const placedId = findPlacedId(intersectionsAt(x, y));
+  preparedPan = placedId ? { mode: 'item', x, y, placedId } : { mode: 'orbit', x, y };
+}
+
+export function activateEditorPan() {
+  if (!preparedPan || pinchActive) return;
+  if (preparedPan.mode === 'item' && preparedPan.placedId) {
+    activePanMode = beginItemDrag(preparedPan.placedId, preparedPan.x, preparedPan.y) ? 'item' : null;
+    return;
+  }
+  orbitStartYaw = currentCameraYaw;
+  activePanMode = 'orbit';
+}
+
+export function updateEditorPan(x: number, y: number, translationX: number) {
+  if (pinchActive) return;
+  if (activePanMode === 'item') {
+    updateItemDrag(x, y);
+    return;
+  }
+  if (activePanMode === 'orbit' && rootState) {
+    applyCameraYaw(cameraYawFromDrag(orbitStartYaw, translationX, rootState.size.width));
+  }
+}
+
+export function finishEditorPan(success: boolean) {
+  const store = useRoomStore.getState();
+  if (activePanMode === 'item') {
+    if (success) store.finishDrag();
+    else store.cancelDrag();
+    clearItemDrag();
+  } else if (activePanMode === 'orbit') {
+    saveCameraView();
+  }
+  preparedPan = null;
+  activePanMode = null;
+}
+
+export function beginEditorPinch(focalX: number, focalY: number) {
+  if (!rootState) return;
+  pinchStartZoom = rootState.camera.zoom;
+  pinchActive = true;
+  suppressTapUntil = Number.POSITIVE_INFINITY;
+  const store = useRoomStore.getState();
+  store.cancelDrag();
+  hasPinchAnchor = pointOnCameraPlane(focalX, focalY, currentCameraTarget, pinchAnchor);
+  clearItemDrag();
+  preparedPan = null;
+  activePanMode = null;
+}
+
+export function updateEditorPinch(scale: number, focalX: number, focalY: number) {
   if (!rootState || !(rootState.camera instanceof THREE.OrthographicCamera)) return;
-  const zoom = THREE.MathUtils.clamp(pinchStartZoom * scale, 52, 104);
+  const zoom = clampCameraZoom(pinchStartZoom * scale);
   rootState.camera.zoom = zoom;
   rootState.camera.updateProjectionMatrix();
+  rootState.camera.updateMatrixWorld();
+
+  if (hasPinchAnchor && pointOnCameraPlane(focalX, focalY, currentCameraTarget, pinchPlanePoint)) {
+    pinchTargetCandidate.copy(currentCameraTarget).add(pinchAnchor).sub(pinchPlanePoint);
+    keepTargetInsideRoom(pinchTargetCandidate);
+    const appliedDelta = pinchTargetCandidate.sub(currentCameraTarget);
+    currentCameraTarget.add(appliedDelta);
+    rootState.camera.position.add(appliedDelta);
+    rootState.camera.lookAt(currentCameraTarget);
+    rootState.camera.updateMatrixWorld();
+  }
   rootState.invalidate();
-  useRoomStore.getState().setCameraZoom(zoom);
+}
+
+export function finishEditorPinch() {
+  if (!pinchActive) return;
+  saveCameraView();
+  hasPinchAnchor = false;
+  pinchActive = false;
+  suppressTapUntil = Date.now() + 160;
 }

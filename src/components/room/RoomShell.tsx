@@ -1,5 +1,6 @@
 import { RoundedBox } from '@react-three/drei/native';
 import { useMemo } from 'react';
+import * as THREE from 'three';
 import { palette } from '../../theme/palette';
 import { PointedArch } from './PointedArch';
 
@@ -11,7 +12,55 @@ type RoomShellProps = {
 
 const floorSeams = [-1.48, -0.74, 0, 0.74, 1.48];
 
+function makeLeftWallShape() {
+  const wallWidth = 4.5;
+  const wallHeight = 2.26;
+  const wall = new THREE.Shape();
+  wall.moveTo(-wallWidth / 2, 0);
+  wall.lineTo(wallWidth / 2, 0);
+  wall.lineTo(wallWidth / 2, wallHeight);
+  wall.lineTo(-wallWidth / 2, wallHeight);
+  wall.closePath();
+
+  // The hole follows the inside edge of the teal pointed-arch frame. Its
+  // winding is reversed so Three treats it as a true opening in the wall.
+  const width = 0.7;
+  const height = 1.096;
+  const half = width / 2;
+  const spring = height * 0.58;
+  const center = -0.65;
+  const bottom = 0.55;
+  const opening = new THREE.Path();
+  opening.moveTo(center - half, bottom);
+  opening.lineTo(center - half, bottom + spring);
+  opening.quadraticCurveTo(center - half * 0.72, bottom + height * 0.82, center, bottom + height);
+  opening.quadraticCurveTo(center + half * 0.72, bottom + height * 0.82, center + half, bottom + spring);
+  opening.lineTo(center + half, bottom);
+  opening.closePath();
+  wall.holes.push(opening);
+
+  return wall;
+}
+
+function makeLeftWallHitGeometry() {
+  return new THREE.ShapeGeometry(makeLeftWallShape(), 32);
+}
+
+function makeLeftWallBodyGeometry() {
+  return new THREE.ExtrudeGeometry(makeLeftWallShape(), {
+    depth: 0.13,
+    steps: 1,
+    curveSegments: 32,
+    bevelEnabled: true,
+    bevelSegments: 3,
+    bevelSize: 0.025,
+    bevelThickness: 0.025,
+  });
+}
+
 export function RoomShell({ floorColor, wallColor, accentColor }: RoomShellProps) {
+  const leftWallHitGeometry = useMemo(() => makeLeftWallHitGeometry(), []);
+  const leftWallBodyGeometry = useMemo(() => makeLeftWallBodyGeometry(), []);
   const seamColor = useMemo(() => {
     return floorColor === '#6F5141' ? '#4E382F' : '#8D5C43';
   }, [floorColor]);
@@ -22,9 +71,13 @@ export function RoomShell({ floorColor, wallColor, accentColor }: RoomShellProps
         <planeGeometry args={[4.4, 4.4]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
-      <mesh position={[-2.038, 1.1, 0]} rotation={[0, Math.PI / 2, 0]} userData={{ placementSurface: 'wallL' }}>
-        <planeGeometry args={[4.4, 2.2]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      <mesh
+        geometry={leftWallHitGeometry}
+        position={[-2.038, -0.04, 0]}
+        rotation={[0, Math.PI / 2, 0]}
+        userData={{ placementSurface: 'wallL' }}
+      >
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
       <mesh position={[0, 1.1, -2.038]} userData={{ placementSurface: 'wallR' }}>
         <planeGeometry args={[4.4, 2.2]} />
@@ -50,9 +103,9 @@ export function RoomShell({ floorColor, wallColor, accentColor }: RoomShellProps
         </mesh>
       ))}
 
-      <RoundedBox args={[0.18, 2.26, 4.5]} radius={0.045} smoothness={3} position={[-2.16, 1.09, 0]}>
+      <mesh geometry={leftWallBodyGeometry} position={[-2.225, -0.04, 0]} rotation={[0, Math.PI / 2, 0]}>
         <meshStandardMaterial color={wallColor} roughness={0.9} />
-      </RoundedBox>
+      </mesh>
       <RoundedBox args={[4.5, 2.26, 0.18]} radius={0.045} smoothness={3} position={[0, 1.09, -2.16]}>
         <meshStandardMaterial color={wallColor} roughness={0.9} />
       </RoundedBox>
@@ -80,7 +133,7 @@ export function RoomShell({ floorColor, wallColor, accentColor }: RoomShellProps
         height={1.24}
         fillColor="#FFF4CE"
         frameColor={accentColor}
-        emissive
+        showFill={false}
         position={[-2.055, 0.55, 0.65]}
         rotation={[0, Math.PI / 2, 0]}
       />

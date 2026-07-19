@@ -2,14 +2,17 @@ import { Canvas } from '@react-three/fiber/native';
 import { useMemo } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_ZOOM } from '../../domain/camera';
 import { RoomScene } from './RoomScene';
 import {
-  beginEditorDrag,
+  activateEditorPan,
   beginEditorPinch,
-  finishEditorDrag,
+  finishEditorPan,
+  finishEditorPinch,
   handleEditorTap,
+  prepareEditorPan,
   setEditorRootState,
-  updateEditorDrag,
+  updateEditorPan,
   updateEditorPinch,
 } from './editorController';
 
@@ -22,17 +25,21 @@ export function RoomCanvas() {
         if (success) handleEditorTap(event.x, event.y);
       });
     const pan = Gesture.Pan()
+      .minPointers(1)
+      .maxPointers(1)
       .minDistance(8)
       .runOnJS(true)
       // Capture the exact touch-down point. Waiting until activation can move a
       // finger beyond the bounds of small models such as the fanous lantern.
-      .onBegin((event) => beginEditorDrag(event.x, event.y))
-      .onUpdate((event) => updateEditorDrag(event.x, event.y))
-      .onFinalize(() => finishEditorDrag());
+      .onBegin((event) => prepareEditorPan(event.x, event.y))
+      .onStart(() => activateEditorPan())
+      .onUpdate((event) => updateEditorPan(event.x, event.y, event.translationX))
+      .onFinalize((_event, success) => finishEditorPan(success));
     const pinch = Gesture.Pinch()
       .runOnJS(true)
-      .onStart(() => beginEditorPinch())
-      .onUpdate((event) => updateEditorPinch(event.scale));
+      .onStart((event) => beginEditorPinch(event.focalX, event.focalY))
+      .onUpdate((event) => updateEditorPinch(event.scale, event.focalX, event.focalY))
+      .onFinalize(() => finishEditorPinch());
     return Gesture.Simultaneous(Gesture.Exclusive(pan, tap), pinch);
   }, []);
 
@@ -41,14 +48,13 @@ export function RoomCanvas() {
       <View style={styles.canvas}>
         <Canvas
           orthographic
-          camera={{ position: [5.8, 5.2, 6.4], zoom: 72, near: 0.1, far: 100 }}
+          camera={{ position: [...DEFAULT_CAMERA_POSITION], zoom: DEFAULT_CAMERA_ZOOM, near: 0.1, far: 100 }}
           frameloop="demand"
           gl={{ antialias: true, alpha: false, preserveDrawingBuffer: Platform.OS === 'web' }}
           shadows={false}
           pointerEvents="none"
           style={styles.canvas}
           onCreated={(state) => {
-            state.camera.lookAt(0, 0.52, 0);
             state.gl.setClearColor(0x000000, 1);
             setEditorRootState(state);
           }}

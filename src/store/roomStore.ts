@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { catalogById } from '../catalog/catalog';
 import type { PlacementSurface } from '../catalog/types';
+import { CAMERA_TARGET, DEFAULT_CAMERA_YAW, DEFAULT_CAMERA_ZOOM } from '../domain/camera';
 import {
   isWithinGrid,
   nearbyAnchors,
@@ -34,6 +35,8 @@ type TransientPatch = Partial<
     | 'draggingItemId'
     | 'dragPreview'
     | 'cameraZoom'
+    | 'cameraYaw'
+    | 'cameraTarget'
     | 'isCaptureClean'
     | 'readyModelItemIds'
   >
@@ -48,6 +51,8 @@ export type RoomState = RoomSnapshot & {
   draggingItemId: string | null;
   dragPreview: DragPreview | null;
   cameraZoom: number;
+  cameraYaw: number;
+  cameraTarget: [number, number, number];
   isCaptureClean: boolean;
   readyModelItemIds: string[];
   setFloorColor: (color: string) => void;
@@ -70,7 +75,7 @@ export type RoomState = RoomSnapshot & {
   redo: () => boolean;
   hydrateRoom: (snapshot: RoomSnapshot) => void;
   finishHydration: () => void;
-  setCameraZoom: (zoom: number) => void;
+  setCameraView: (zoom: number, yaw: number, target: [number, number, number]) => void;
   setCaptureClean: (clean: boolean) => void;
   markModelReady: (placedItemId: string) => void;
 };
@@ -185,7 +190,9 @@ export const useRoomStore = create<RoomState>((set, get) => {
     placingCatalogId: null,
     draggingItemId: null,
     dragPreview: null,
-    cameraZoom: 72,
+    cameraZoom: DEFAULT_CAMERA_ZOOM,
+    cameraYaw: DEFAULT_CAMERA_YAW,
+    cameraTarget: [...CAMERA_TARGET],
     isCaptureClean: false,
     readyModelItemIds: [],
     setFloorColor: (floorColor) => commitRoom({ ...readRoomSnapshot(get()), floorColor }),
@@ -340,7 +347,8 @@ export const useRoomStore = create<RoomState>((set, get) => {
         readyModelItemIds: [],
       }),
     finishHydration: () => set({ isHydrated: true }),
-    setCameraZoom: (cameraZoom) => set({ cameraZoom }),
+    setCameraView: (cameraZoom, cameraYaw, cameraTarget) =>
+      set({ cameraZoom, cameraYaw, cameraTarget: [...cameraTarget] }),
     setCaptureClean: (isCaptureClean) => set({ isCaptureClean }),
     markModelReady: (placedItemId) =>
       set((state) => {

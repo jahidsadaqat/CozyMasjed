@@ -8,6 +8,7 @@ type PointedArchProps = {
   fillColor: string;
   frameColor: string;
   emissive?: boolean;
+  showFill?: boolean;
   position?: [number, number, number];
   rotation?: [number, number, number];
 };
@@ -30,6 +31,7 @@ export function PointedArch({
   fillColor,
   frameColor,
   emissive = false,
+  showFill = true,
   position = [0, 0, 0],
   rotation = [0, 0, 0],
 }: PointedArchProps) {
@@ -51,14 +53,16 @@ export function PointedArch({
 
   return (
     <group position={position} rotation={rotation}>
-      <mesh geometry={fillGeometry} position={[0, frameWidth * 0.15, 0]}>
-        <meshStandardMaterial
-          color={fillColor}
-          emissive={emissive ? fillColor : '#000000'}
-          emissiveIntensity={emissive ? 0.72 : 0}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+      {showFill ? (
+        <mesh geometry={fillGeometry} position={[0, frameWidth * 0.15, 0]}>
+          <meshStandardMaterial
+            color={fillColor}
+            emissive={emissive ? fillColor : '#000000'}
+            emissiveIntensity={emissive ? 0.72 : 0}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ) : null}
       <mesh geometry={frameGeometry} position={[0, 0, 0.012]}>
         <meshStandardMaterial color={frameColor} roughness={0.7} side={THREE.DoubleSide} />
       </mesh>
