@@ -71,8 +71,10 @@ export const catalog: readonly CatalogItem[] = [
     asset: modelAssets.curtains,
     allowedSurfaces: ['wallL', 'wallR'],
     footprint: { width: 2, depth: 1 },
+    wallFootprint: { width: 3, height: 2 },
     modelScale: 0.59,
     placeholderColor: '#DDBE83',
+    rotatable: false,
   },
   {
     id: 'minaret',
@@ -91,8 +93,10 @@ export const catalog: readonly CatalogItem[] = [
     asset: modelAssets.wallArt,
     allowedSurfaces: ['wallL', 'wallR'],
     footprint: { width: 1, depth: 1 },
+    wallFootprint: { width: 2, height: 2 },
     modelScale: 0.4,
     placeholderColor: '#CFAE66',
+    rotatable: false,
   },
   {
     id: 'mini-masjid',

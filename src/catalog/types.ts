@@ -8,8 +8,10 @@ export type CatalogItem = {
   asset: number;
   allowedSurfaces: readonly PlacementSurface[];
   footprint: { width: number; depth: number };
+  wallFootprint?: { width: number; height: number };
   modelScale: number;
   modelRotation?: [number, number, number];
   placeholderColor: string;
   emitsLight?: boolean;
+  rotatable?: boolean;
 };

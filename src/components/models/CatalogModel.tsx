@@ -10,6 +10,7 @@ type CatalogModelProps = {
   rotation?: [number, number, number];
   scale?: number;
   onReady?: (catalogId: string) => void;
+  placedItemId?: string;
 };
 
 export function CatalogModel({
@@ -18,6 +19,7 @@ export function CatalogModel({
   rotation = item.modelRotation ?? [0, 0, 0],
   scale = item.modelScale,
   onReady,
+  placedItemId,
 }: CatalogModelProps) {
   const gltf = useMeshoptGLTF(item.asset);
   const lighting = useRoomStore((state) => state.lighting);
@@ -52,8 +54,18 @@ export function CatalogModel({
     }
   }, [item.id, onReady]);
 
+  useEffect(() => {
+    return () => {
+      normalizedScene.traverse((object) => {
+        if (!(object instanceof THREE.Mesh)) return;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.forEach((material) => material.dispose());
+      });
+    };
+  }, [normalizedScene]);
+
   return (
-    <group position={position} rotation={rotation} scale={scale} userData={{ catalogId: item.id }}>
+    <group position={position} rotation={rotation} scale={scale} userData={{ catalogId: item.id, placedItemId }}>
       <primitive object={normalizedScene} dispose={null} />
       {item.emitsLight && lighting === 'warm' ? (
         <pointLight position={[0, 1.2, 0]} color="#FFC56E" intensity={1.25} distance={2.2} decay={2} />

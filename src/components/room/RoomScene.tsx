@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { useRoomStore } from '../../store/roomStore';
 import { ModelValidationScene } from '../models/ModelValidationScene';
+import { PlacedItems } from './PlacedItems';
 import { RoomShell } from './RoomShell';
 
 // Kept off in the product scene. Set true only while validating the complete asset pack.
@@ -21,6 +22,7 @@ export function RoomScene() {
         color={lighting === 'day' ? '#FFF2D2' : '#FFD08A'}
       />
       <RoomShell floorColor={floorColor} wallColor={wallColor} accentColor={accentColor} />
+      <PlacedItems />
       {SHOW_MODEL_VALIDATION_SCENE ? (
         <Suspense fallback={null}>
           <ModelValidationScene />

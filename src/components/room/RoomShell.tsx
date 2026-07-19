@@ -18,6 +18,18 @@ export function RoomShell({ floorColor, wallColor, accentColor }: RoomShellProps
 
   return (
     <group>
+      <mesh position={[0, 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]} userData={{ placementSurface: 'floor' }}>
+        <planeGeometry args={[4.4, 4.4]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      <mesh position={[-2.038, 1.1, 0]} rotation={[0, Math.PI / 2, 0]} userData={{ placementSurface: 'wallL' }}>
+        <planeGeometry args={[4.4, 2.2]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, 1.1, -2.038]} userData={{ placementSurface: 'wallR' }}>
+        <planeGeometry args={[4.4, 2.2]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
       <RoundedBox args={[4.86, 0.28, 4.86]} radius={0.12} smoothness={4} position={[0, -0.25, 0]}>
         <meshStandardMaterial color={palette.terracottaDeep} roughness={0.82} />
       </RoundedBox>
