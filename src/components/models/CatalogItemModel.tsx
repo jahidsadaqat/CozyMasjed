@@ -1,6 +1,9 @@
+import { useLayoutEffect, useRef } from 'react';
+import * as THREE from 'three';
 import type { CatalogItem, ProceduralCatalogItem } from '../../catalog/types';
 import { CatalogModel } from './CatalogModel';
 import { TasbihWallHolder } from './TasbihWallHolder';
+import { applyCatalogMaterialPolicyToObject } from './catalogMaterialPolicy';
 
 type CatalogItemModelProps = {
   item: CatalogItem;
@@ -25,29 +28,35 @@ export function CatalogItemModel({
   placedItemId,
   enablePointLight = true,
 }: CatalogItemModelProps) {
-  if (isProceduralItem(item)) {
-    return (
-      <TasbihWallHolder
-        variant={item.proceduralModel}
-        catalogId={item.id}
-        position={position}
-        rotation={rotation}
-        scale={scale}
-        onReady={onReady}
-        placedItemId={placedItemId}
-      />
-    );
-  }
+  const materialPolicyRef = useRef<THREE.Group>(null);
+
+  useLayoutEffect(() => {
+    if (materialPolicyRef.current) applyCatalogMaterialPolicyToObject(materialPolicyRef.current, item.id);
+  }, [item.id]);
 
   return (
-    <CatalogModel
-      item={item}
-      position={position}
-      rotation={rotation}
-      scale={scale}
-      onReady={onReady}
-      placedItemId={placedItemId}
-      enablePointLight={enablePointLight}
-    />
+    <group ref={materialPolicyRef}>
+      {isProceduralItem(item) ? (
+        <TasbihWallHolder
+          variant={item.proceduralModel}
+          catalogId={item.id}
+          position={position}
+          rotation={rotation}
+          scale={scale}
+          onReady={onReady}
+          placedItemId={placedItemId}
+        />
+      ) : (
+        <CatalogModel
+          item={item}
+          position={position}
+          rotation={rotation}
+          scale={scale}
+          onReady={onReady}
+          placedItemId={placedItemId}
+          enablePointLight={enablePointLight}
+        />
+      )}
+    </group>
   );
 }

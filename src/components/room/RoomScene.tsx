@@ -17,12 +17,9 @@ export function RoomScene() {
   return (
     <>
       <SceneBackdrop lighting={lighting} />
-      <ambientLight intensity={lighting === 'day' ? 1.75 : 0.92} color={lighting === 'day' ? '#FFF8E8' : '#E5B777'} />
-      <directionalLight
-        position={[4.5, 7, 5]}
-        intensity={lighting === 'day' ? 2.1 : 1.1}
-        color={lighting === 'day' ? '#FFF2D2' : '#FFD08A'}
-      />
+      <ambientLight intensity={0.6} color="#FFFFFF" />
+      <hemisphereLight intensity={0.5} color="#FFF6E8" groundColor="#D9B08C" />
+      <directionalLight position={[4, 7, 3]} intensity={1.3} color="#FFF3DC" />
       <RoomShell floorColor={floorColor} wallColor={wallColor} accentColor={accentColor} />
       <PlacedItems />
       {SHOW_MODEL_VALIDATION_SCENE ? (

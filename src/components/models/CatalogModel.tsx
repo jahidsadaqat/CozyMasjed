@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import type { AssetCatalogItem } from '../../catalog/types';
 import { useRoomStore } from '../../store/roomStore';
+import { applyCatalogMaterialPolicy } from './catalogMaterialPolicy';
 import { useMeshoptGLTF } from './useMeshoptGLTF';
 
 type CatalogModelProps = {
@@ -28,6 +29,16 @@ export function CatalogModel({
 
   const normalizedScene = useMemo(() => {
     const scene = gltf.scene.clone(true);
+    const materialClones = new Map<THREE.Material, THREE.Material>();
+
+    const cloneMaterial = (source: THREE.Material, meshName: string) => {
+      const existing = materialClones.get(source);
+      if (existing) return existing;
+      const material = source.clone();
+      applyCatalogMaterialPolicy(material, item.id, meshName);
+      materialClones.set(source, material);
+      return material;
+    };
 
     scene.traverse((object) => {
       if (object instanceof THREE.Mesh) {
@@ -35,9 +46,9 @@ export function CatalogModel({
         object.castShadow = false;
         object.receiveShadow = false;
         if (Array.isArray(object.material)) {
-          object.material = object.material.map((material) => material.clone());
+          object.material = object.material.map((material) => cloneMaterial(material, object.name || object.type));
         } else {
-          object.material = object.material.clone();
+          object.material = cloneMaterial(object.material, object.name || object.type);
         }
       }
     });
@@ -47,7 +58,7 @@ export function CatalogModel({
     scene.position.set(-center.x, -bounds.min.y, -center.z);
     scene.updateMatrixWorld(true);
     return scene;
-  }, [gltf.scene]);
+  }, [gltf.scene, item.id]);
 
   useEffect(() => {
     onReady?.(item.id);
@@ -73,11 +84,13 @@ export function CatalogModel({
 
   useEffect(() => {
     return () => {
+      const materials = new Set<THREE.Material>();
       normalizedScene.traverse((object) => {
         if (!(object instanceof THREE.Mesh)) return;
-        const materials = Array.isArray(object.material) ? object.material : [object.material];
-        materials.forEach((material) => material.dispose());
+        const meshMaterials = Array.isArray(object.material) ? object.material : [object.material];
+        meshMaterials.forEach((material) => materials.add(material));
       });
+      materials.forEach((material) => material.dispose());
     };
   }, [normalizedScene]);
 

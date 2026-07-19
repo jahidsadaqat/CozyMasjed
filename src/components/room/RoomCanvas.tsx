@@ -56,6 +56,9 @@ export function RoomCanvas() {
       >
         <Canvas
           orthographic
+          flat
+          // R3F Native already uses PixelRatio.get(), so Expo GL renders at
+          // the device's native Retina resolution without a dpr prop.
           camera={{ position: [...DEFAULT_CAMERA_POSITION], zoom: DEFAULT_CAMERA_ZOOM, near: 0.1, far: 100 }}
           frameloop="demand"
           gl={{ antialias: true, alpha: false, preserveDrawingBuffer: Platform.OS === 'web' }}

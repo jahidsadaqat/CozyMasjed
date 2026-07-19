@@ -308,7 +308,12 @@ export function TasbihWallHolder({
   }, [catalogId, onReady, placedItemId]);
 
   return (
-    <group position={position} rotation={rotation} scale={scale} userData={{ catalogId, placedItemId }}>
+    <group
+      position={position}
+      rotation={rotation}
+      scale={scale}
+      userData={{ catalogId, placedItemId }}
+    >
       <HolderVariant variant={variant} />
     </group>
   );
