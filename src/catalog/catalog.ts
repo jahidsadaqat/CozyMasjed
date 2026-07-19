@@ -5,8 +5,8 @@ import type { CatalogItem } from './types';
 export const catalog: readonly CatalogItem[] = [
   {
     id: 'masjid-model',
-    name: 'Masjid Model',
-    category: 'Buildings',
+    name: 'Prayer Rug',
+    category: 'Prayer',
     asset: modelAssets.masjid,
     allowedSurfaces: ['floor'],
     footprint: { width: 2, depth: 2 },
@@ -26,7 +26,7 @@ export const catalog: readonly CatalogItem[] = [
   },
   {
     id: 'tasbih',
-    name: 'Tasbih',
+    name: 'Open Quran & Rehal',
     category: 'Prayer',
     asset: modelAssets.tasbih,
     allowedSurfaces: ['floor'],
@@ -66,8 +66,8 @@ export const catalog: readonly CatalogItem[] = [
   },
   {
     id: 'curtains',
-    name: 'Arch Curtains',
-    category: 'Wall',
+    name: 'Star Wall Lantern',
+    category: 'Lights',
     asset: modelAssets.curtains,
     allowedSurfaces: ['wallL', 'wallR'],
     footprint: { width: 2, depth: 1 },
@@ -78,8 +78,8 @@ export const catalog: readonly CatalogItem[] = [
   },
   {
     id: 'minaret',
-    name: 'Mini Minaret',
-    category: 'Buildings',
+    name: 'Globe Fanous Lantern',
+    category: 'Lights',
     asset: modelAssets.minaret,
     allowedSurfaces: ['floor'],
     footprint: { width: 1, depth: 1 },
@@ -88,7 +88,7 @@ export const catalog: readonly CatalogItem[] = [
   },
   {
     id: 'wall-art',
-    name: 'Islamic Wall Art',
+    name: 'Quran Wall Display',
     category: 'Wall',
     asset: modelAssets.wallArt,
     allowedSurfaces: ['wallL', 'wallR'],
@@ -160,7 +160,7 @@ export const catalog: readonly CatalogItem[] = [
   },
   {
     id: 'mini-masjid',
-    name: 'Mini Masjid Model',
+    name: 'Mini Masjid Room',
     category: 'Decor',
     asset: modelAssets.miniMasjid,
     allowedSurfaces: ['floor'],

@@ -2,7 +2,6 @@ import { Suspense } from 'react';
 import { catalogById } from '../../catalog/catalog';
 import { CELL_SIZE, getPlacementSize, placementToWorld, type PlacedItem } from '../../domain/grid';
 import { useRoomStore } from '../../store/roomStore';
-import { palette } from '../../theme/palette';
 import { CatalogItemModel } from '../models/CatalogItemModel';
 
 function modelRotation(item: PlacedItem): [number, number, number] {
@@ -17,13 +16,23 @@ function SelectionFootprint({ item, invalid }: { item: PlacedItem; invalid: bool
   if (!catalogItem) return null;
   const [x, y, z] = placementToWorld(item, catalogItem);
   const size = getPlacementSize(catalogItem, item.surface, item.rotation);
-  const color = invalid ? '#D65F55' : palette.sand;
+  const color = invalid ? '#D96F66' : '#C2BEC8';
+  const baseRadius = (Math.max(size.width, size.height) * CELL_SIZE) / 2;
+  const radius = baseRadius + (item.surface === 'floor' ? 0.24 : 0.07);
 
   if (item.surface === 'floor') {
     return (
-      <mesh position={[x, y + 0.012, z]}>
-        <boxGeometry args={[size.width * 0.55 - 0.04, 0.025, size.height * 0.55 - 0.04]} />
-        <meshBasicMaterial color={color} transparent opacity={invalid ? 0.47 : 0.32} depthWrite={false} />
+      <mesh position={[x, y + 0.012, z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[radius, 48]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={invalid ? 0.66 : 0.58}
+          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
+        />
       </mesh>
     );
   }
@@ -33,8 +42,16 @@ function SelectionFootprint({ item, invalid }: { item: PlacedItem; invalid: bool
   const rotation: [number, number, number] = item.surface === 'wallL' ? [0, Math.PI / 2, 0] : [0, 0, 0];
   return (
     <mesh position={position} rotation={rotation}>
-      <planeGeometry args={[size.width * 0.55 - 0.04, size.height * 0.55 - 0.04]} />
-      <meshBasicMaterial color={color} transparent opacity={invalid ? 0.47 : 0.3} depthWrite={false} />
+      <circleGeometry args={[radius, 48]} />
+      <meshBasicMaterial
+        color={color}
+        transparent
+        opacity={invalid ? 0.58 : 0.46}
+        depthWrite={false}
+        polygonOffset
+        polygonOffsetFactor={-1}
+        polygonOffsetUnits={-1}
+      />
     </mesh>
   );
 }
@@ -43,6 +60,7 @@ export function PlacedItems() {
   const items = useRoomStore((state) => state.placedItems);
   const selectedItemId = useRoomStore((state) => state.selectedItemId);
   const dragPreview = useRoomStore((state) => state.dragPreview);
+  const placementPreview = useRoomStore((state) => state.placementPreview);
   const isCaptureClean = useRoomStore((state) => state.isCaptureClean);
   const activePointLightIds = new Set(
     items.filter((item) => catalogById[item.catalogId]?.emitsLight).slice(0, 3).map((item) => item.id),
@@ -74,6 +92,24 @@ export function PlacedItems() {
           </group>
         );
       })}
+      {placementPreview ? (() => {
+        const item = placementPreview.item;
+        const catalogItem = catalogById[item.catalogId];
+        if (!catalogItem) return null;
+        return (
+          <group key={`placement-${item.id}`} userData={{ placementPreviewId: item.id }}>
+            {!isCaptureClean ? <SelectionFootprint item={item} invalid={!placementPreview.valid} /> : null}
+            <Suspense fallback={null}>
+              <CatalogItemModel
+                item={catalogItem}
+                enablePointLight={false}
+                position={placementToWorld(item, catalogItem)}
+                rotation={modelRotation(item)}
+              />
+            </Suspense>
+          </group>
+        );
+      })() : null}
     </group>
   );
 }

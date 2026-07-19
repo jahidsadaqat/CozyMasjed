@@ -4,7 +4,6 @@ import {
   BookOpen,
   Camera,
   ChevronLeft,
-  CircleX,
   CopyPlus,
   Frame,
   Lamp,
@@ -24,10 +23,11 @@ import {
   X,
 } from 'lucide-react-native';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { catalog, catalogById } from '../../catalog/catalog';
+import { catalogThumbnails } from '../../catalog/thumbnails';
 import type { CatalogCategory, CatalogItem } from '../../catalog/types';
 import { captureSaveAndShareRoom } from '../../services/roomSnapshot';
 import { useRoomStore } from '../../store/roomStore';
@@ -36,7 +36,7 @@ import { floorSwatches, palette, wallSwatches } from '../../theme/palette';
 type OpenPanel = 'catalog' | 'style' | null;
 type FilterCategory = CatalogCategory | 'All';
 
-const categories: readonly FilterCategory[] = ['All', 'Prayer', 'Lights', 'Seating', 'Decor', 'Wall', 'Buildings'];
+const categories: readonly FilterCategory[] = ['All', 'Prayer', 'Lights', 'Seating', 'Decor', 'Wall'];
 
 function tapFeedback() {
   void Haptics.selectionAsync();
@@ -109,7 +109,7 @@ function CategoryGlyph({ item }: { item: CatalogItem }) {
   return <Sparkles {...common} />;
 }
 
-function CatalogSheet({ onClose }: { onClose: () => void }) {
+function CatalogTray({ onClose }: { onClose: () => void }) {
   const [category, setCategory] = useState<FilterCategory>('All');
   const startPlacing = useRoomStore((state) => state.startPlacing);
   const visibleItems = useMemo(
@@ -118,15 +118,7 @@ function CatalogSheet({ onClose }: { onClose: () => void }) {
   );
 
   return (
-    <Animated.View entering={FadeInDown.duration(220)} exiting={FadeOutDown.duration(160)} style={styles.sheet}>
-      <View style={styles.sheetHandle} />
-      <View style={styles.sheetHeadingRow}>
-        <View>
-          <Text style={styles.sheetTitle}>Add something special</Text>
-          <Text style={styles.sheetSubtitle}>Choose an item, then tap its place in the room</Text>
-        </View>
-        <RoundButton label="Close catalog" icon={<X color={palette.ink} size={20} />} onPress={onClose} />
-      </View>
+    <Animated.View entering={FadeInDown.duration(190)} exiting={FadeOutDown.duration(140)} style={styles.catalogTray}>
       <ScrollView
         horizontal
         contentContainerStyle={styles.categoryRow}
@@ -140,6 +132,8 @@ function CatalogSheet({ onClose }: { onClose: () => void }) {
               key={value}
               accessibilityLabel={`${value} category`}
               accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              hitSlop={8}
               onPress={() => {
                 tapFeedback();
                 setCategory(value);
@@ -166,19 +160,19 @@ function CatalogSheet({ onClose }: { onClose: () => void }) {
               tapFeedback();
               startPlacing(item.id);
               onClose();
+              AccessibilityInfo.announceForAccessibility(`${item.name} ready to move. Tap or drag to place it.`);
             }}
             style={({ pressed }) => [styles.itemCard, pressed && styles.itemCardPressed]}
           >
-            <View style={[styles.itemPlaceholder, { backgroundColor: item.placeholderColor }]}>
-              <CategoryGlyph item={item} />
-            </View>
+            {catalogThumbnails[item.id] ? (
+              <Image resizeMode="contain" source={catalogThumbnails[item.id]} style={styles.itemThumbnail} />
+            ) : (
+              <View style={[styles.itemPlaceholder, { backgroundColor: item.placeholderColor }]}>
+                <CategoryGlyph item={item} />
+              </View>
+            )}
             <Text numberOfLines={2} style={styles.itemName}>
               {item.name}
-            </Text>
-            <Text style={styles.itemFootprint}>
-              {item.allowedSurfaces.includes('floor')
-                ? `${item.footprint.width}×${item.footprint.depth} floor`
-                : 'Wall item'}
             </Text>
           </Pressable>
         ))}
@@ -284,6 +278,7 @@ export function EditorOverlay() {
   const [notice, setNotice] = useState<{ title: string; message: string } | null>(null);
   const selectedItemId = useRoomStore((state) => state.selectedItemId);
   const placingCatalogId = useRoomStore((state) => state.placingCatalogId);
+  const hasPlacementPreview = useRoomStore((state) => Boolean(state.placementPreview));
   const placedItems = useRoomStore((state) => state.placedItems);
   const readyModelItemIds = useRoomStore((state) => state.readyModelItemIds);
   const lighting = useRoomStore((state) => state.lighting);
@@ -296,7 +291,6 @@ export function EditorOverlay() {
   const redo = useRoomStore((state) => state.redo);
   const cancelDrag = useRoomStore((state) => state.cancelDrag);
   const setCaptureClean = useRoomStore((state) => state.setCaptureClean);
-  const placingItem = placingCatalogId ? catalogById[placingCatalogId] : null;
   const modelsReady = placedItems.every((item) => readyModelItemIds.includes(item.id));
 
   const closePanel = () => setPanel(null);
@@ -307,7 +301,7 @@ export function EditorOverlay() {
   };
 
   const handleSnap = async () => {
-    if (isCapturing || !modelsReady) return;
+    if (isCapturing || !modelsReady || hasPlacementPreview) return;
     setPanel(null);
     cancelDrag();
     setCaptureClean(true);
@@ -366,7 +360,11 @@ export function EditorOverlay() {
     <SafeAreaView pointerEvents="box-none" style={styles.overlay}>
       <View pointerEvents="box-none" style={styles.topControls}>
         <View style={styles.topRow}>
-          <RoundButton label="Back" icon={<ChevronLeft color={palette.ink} size={24} />} onPress={handleBack} />
+          <RoundButton
+            label={placingCatalogId ? 'Cancel placement' : panel ? 'Close panel' : 'Back'}
+            icon={<ChevronLeft color={palette.ink} size={24} />}
+            onPress={handleBack}
+          />
           <View style={styles.topActions}>
             <RoundButton
               label={lighting === 'day' ? 'Use warm lighting' : 'Use daylight'}
@@ -417,11 +415,13 @@ export function EditorOverlay() {
           />
           <PillButton
             label="Snap"
-            disabled={!modelsReady}
+            disabled={!modelsReady || hasPlacementPreview}
             icon={<Camera color={palette.ink} size={20} />}
             onPress={() => void handleSnap()}
           />
         </View>
+
+        {panel === 'catalog' ? <CatalogTray onClose={closePanel} /> : null}
 
         {!modelsReady ? (
           <View style={styles.modelLoadingHint}>
@@ -430,23 +430,8 @@ export function EditorOverlay() {
         ) : null}
 
         {!panel ? <SelectedItemActions /> : null}
-        {placingItem && !panel ? (
-          <Animated.View entering={FadeInDown.duration(180)} style={styles.placementHint}>
-            <View style={[styles.hintDot, { backgroundColor: placingItem.placeholderColor }]} />
-            <View style={styles.hintCopy}>
-              <Text style={styles.hintTitle}>Place {placingItem.name}</Text>
-              <Text style={styles.hintText}>
-                Tap {placingItem.allowedSurfaces.includes('floor') ? 'the floor' : 'a wall'} · drag after placing
-              </Text>
-            </View>
-            <Pressable accessibilityLabel="Cancel placement" onPress={cancelPlacement} style={styles.hintClose}>
-              <CircleX color={palette.inkMuted} size={20} />
-            </Pressable>
-          </Animated.View>
-        ) : null}
       </View>
 
-      {panel === 'catalog' ? <CatalogSheet onClose={closePanel} /> : null}
       {panel === 'style' ? <StylePanel onClose={closePanel} /> : null}
       {notice ? (
         <Animated.View entering={FadeInDown.duration(180)} exiting={FadeOutDown.duration(150)} pointerEvents="none" style={styles.notice}>
@@ -553,17 +538,6 @@ const styles = StyleSheet.create({
     height: 25,
     backgroundColor: 'rgba(78,59,49,0.16)',
   },
-  placementHint: {
-    marginTop: 12,
-    minWidth: 282,
-    maxWidth: 342,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 20,
-    padding: 11,
-    backgroundColor: 'rgba(246, 244, 239, 0.97)',
-    ...softShadow,
-  },
   modelLoadingHint: {
     marginTop: 9,
     borderRadius: 14,
@@ -575,29 +549,6 @@ const styles = StyleSheet.create({
     color: palette.inkMuted,
     fontFamily: 'Nunito_700Bold',
     fontSize: 11,
-  },
-  hintDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    marginRight: 10,
-  },
-  hintCopy: {
-    flex: 1,
-  },
-  hintTitle: {
-    color: palette.ink,
-    fontFamily: 'Nunito_800ExtraBold',
-    fontSize: 14,
-  },
-  hintText: {
-    marginTop: -1,
-    color: palette.inkMuted,
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 11,
-  },
-  hintClose: {
-    padding: 6,
   },
   immersiveRestore: {
     alignSelf: 'flex-end',
@@ -644,20 +595,25 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito_700Bold',
     fontSize: 11,
   },
+  catalogTray: {
+    width: '100%',
+    marginTop: 8,
+  },
   categoryScroller: {
     flexGrow: 0,
-    marginTop: 11,
   },
   categoryRow: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 2,
     gap: 7,
   },
   categoryChip: {
-    height: 32,
-    paddingHorizontal: 14,
-    borderRadius: 16,
+    height: 29,
+    paddingHorizontal: 13,
+    borderRadius: 15,
     justifyContent: 'center',
-    backgroundColor: '#EEE4D5',
+    backgroundColor: 'rgba(246, 244, 239, 0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(78,59,49,0.08)',
   },
   categoryChipActive: {
     backgroundColor: palette.ink,
@@ -672,20 +628,20 @@ const styles = StyleSheet.create({
   },
   itemScroller: {
     flexGrow: 0,
-    marginTop: 11,
+    marginTop: 9,
   },
   itemRow: {
-    paddingHorizontal: 14,
-    paddingBottom: 3,
+    paddingHorizontal: 2,
+    paddingBottom: 8,
     gap: 10,
   },
   itemCard: {
     width: 104,
-    minHeight: 139,
-    padding: 8,
-    borderRadius: 20,
+    minHeight: 132,
+    padding: 7,
+    borderRadius: 17,
     alignItems: 'center',
-    backgroundColor: '#FFFBF4',
+    backgroundColor: 'rgba(255, 251, 244, 0.98)',
     borderWidth: 1,
     borderColor: 'rgba(78,59,49,0.07)',
   },
@@ -694,26 +650,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3E7D4',
   },
   itemPlaceholder: {
-    width: 74,
-    height: 72,
-    borderRadius: 17,
+    width: 82,
+    height: 82,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  itemThumbnail: {
+    width: 82,
+    height: 82,
+    borderRadius: 14,
+  },
   itemName: {
-    minHeight: 32,
-    marginTop: 6,
+    minHeight: 27,
+    marginTop: 5,
     color: palette.ink,
     textAlign: 'center',
     fontFamily: 'Nunito_800ExtraBold',
-    fontSize: 12,
-    lineHeight: 14,
-  },
-  itemFootprint: {
-    marginTop: 1,
-    color: palette.inkMuted,
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 9,
+    fontSize: 11,
+    lineHeight: 13,
   },
   swatchSection: {
     paddingHorizontal: 18,

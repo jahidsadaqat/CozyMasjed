@@ -3,10 +3,13 @@ import { catalogById } from '../catalog/catalog';
 import type { PlacementSurface } from '../catalog/types';
 import { CAMERA_TARGET, DEFAULT_CAMERA_YAW, DEFAULT_CAMERA_ZOOM } from '../domain/camera';
 import {
+  getPlacementSize,
+  GRID_SIZE,
   isWithinGrid,
   nearbyAnchors,
   placementsOverlap,
   rotateAroundCenter,
+  WALL_ROWS,
   type PlacedItem,
   type QuarterTurn,
 } from '../domain/grid';
@@ -27,11 +30,17 @@ type DragPreview = {
   valid: boolean;
 };
 
+export type PlacementPreview = {
+  item: PlacedItem;
+  valid: boolean;
+};
+
 type TransientPatch = Partial<
   Pick<
     RoomState,
     | 'selectedItemId'
     | 'placingCatalogId'
+    | 'placementPreview'
     | 'draggingItemId'
     | 'dragPreview'
     | 'cameraZoom'
@@ -48,6 +57,7 @@ export type RoomState = RoomSnapshot & {
   isHydrated: boolean;
   selectedItemId: string | null;
   placingCatalogId: string | null;
+  placementPreview: PlacementPreview | null;
   draggingItemId: string | null;
   dragPreview: DragPreview | null;
   cameraZoom: number;
@@ -61,6 +71,9 @@ export type RoomState = RoomSnapshot & {
   toggleLighting: () => void;
   startPlacing: (catalogId: string) => void;
   cancelPlacement: () => void;
+  previewPlacement: (candidate: PlacedItem) => void;
+  invalidatePlacementPreview: () => void;
+  commitPlacementPreview: () => boolean;
   selectItem: (id: string | null) => void;
   placeCatalogItem: (catalogId: string, gridX: number, gridY: number, surface: PlacementSurface) => boolean;
   beginDrag: (id: string) => void;
@@ -151,6 +164,45 @@ export function isValidPlacement(candidate: PlacedItem, placedItems: readonly Pl
   });
 }
 
+function makeInitialPlacementPreview(
+  catalogId: string,
+  placedItems: readonly PlacedItem[],
+): PlacementPreview | null {
+  const catalogItem = catalogById[catalogId];
+  if (!catalogItem) return null;
+
+  const id = makePlacedId(catalogId);
+  let fallback: PlacedItem | null = null;
+
+  for (const surface of catalogItem.allowedSurfaces) {
+    const size = getPlacementSize(catalogItem, surface, 0);
+    const rowCount = surface === 'floor' ? GRID_SIZE : WALL_ROWS;
+    const maxX = GRID_SIZE - size.width;
+    const maxY = rowCount - size.height;
+    if (maxX < 0 || maxY < 0) continue;
+
+    const centerX = maxX / 2;
+    const centerY = maxY / 2;
+    const candidates: PlacedItem[] = [];
+    for (let gridY = 0; gridY <= maxY; gridY += 1) {
+      for (let gridX = 0; gridX <= maxX; gridX += 1) {
+        candidates.push({ id, catalogId, gridX, gridY, rotation: 0, surface });
+      }
+    }
+    candidates.sort((a, b) => {
+      const distanceA = (a.gridX - centerX) ** 2 + (a.gridY - centerY) ** 2;
+      const distanceB = (b.gridX - centerX) ** 2 + (b.gridY - centerY) ** 2;
+      return distanceA - distanceB;
+    });
+
+    fallback ??= candidates[0] ?? null;
+    const validCandidate = candidates.find((candidate) => isValidPlacement(candidate, placedItems));
+    if (validCandidate) return { item: validCandidate, valid: true };
+  }
+
+  return fallback ? { item: fallback, valid: false } : null;
+}
+
 function nextQuarterTurn(rotation: QuarterTurn, direction: 1 | -1): QuarterTurn {
   return ((rotation + direction * 90 + 360) % 360) as QuarterTurn;
 }
@@ -158,6 +210,7 @@ function nextQuarterTurn(rotation: QuarterTurn, direction: 1 | -1): QuarterTurn 
 const clearEditorPatch: TransientPatch = {
   selectedItemId: null,
   placingCatalogId: null,
+  placementPreview: null,
   draggingItemId: null,
   dragPreview: null,
   isCaptureClean: false,
@@ -188,6 +241,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     isHydrated: false,
     selectedItemId: null,
     placingCatalogId: null,
+    placementPreview: null,
     draggingItemId: null,
     dragPreview: null,
     cameraZoom: DEFAULT_CAMERA_ZOOM,
@@ -203,13 +257,51 @@ export const useRoomStore = create<RoomState>((set, get) => {
       commitRoom({ ...room, lighting: room.lighting === 'day' ? 'warm' : 'day' });
     },
     startPlacing: (placingCatalogId) => {
-      if (!catalogById[placingCatalogId]) return;
-      set({ placingCatalogId, selectedItemId: null, draggingItemId: null, dragPreview: null });
+      const placementPreview = makeInitialPlacementPreview(placingCatalogId, get().placedItems);
+      if (!placementPreview) return;
+      set({
+        placingCatalogId,
+        placementPreview,
+        selectedItemId: null,
+        draggingItemId: null,
+        dragPreview: null,
+      });
     },
-    cancelPlacement: () => set({ placingCatalogId: null }),
+    cancelPlacement: () => set({ placingCatalogId: null, placementPreview: null }),
+    previewPlacement: (candidate) => {
+      const state = get();
+      if (
+        !state.placementPreview ||
+        candidate.id !== state.placementPreview.item.id ||
+        candidate.catalogId !== state.placingCatalogId
+      ) {
+        return;
+      }
+      set({
+        placementPreview: {
+          item: { ...candidate },
+          valid: isValidPlacement(candidate, state.placedItems),
+        },
+      });
+    },
+    invalidatePlacementPreview: () =>
+      set((state) =>
+        state.placementPreview
+          ? { placementPreview: { ...state.placementPreview, valid: false } }
+          : state,
+      ),
+    commitPlacementPreview: () => {
+      const state = get();
+      if (!state.placementPreview?.valid || !state.placingCatalogId) return false;
+      const candidate = { ...state.placementPreview.item };
+      return commitRoom(
+        { ...readRoomSnapshot(state), placedItems: [...clonePlacedItems(state.placedItems), candidate] },
+        { selectedItemId: candidate.id, placingCatalogId: null, placementPreview: null },
+      );
+    },
     selectItem: (selectedItemId) => {
       if (selectedItemId && !get().placedItems.some((item) => item.id === selectedItemId)) return;
-      set({ selectedItemId, placingCatalogId: null, draggingItemId: null, dragPreview: null });
+      set({ selectedItemId, placingCatalogId: null, placementPreview: null, draggingItemId: null, dragPreview: null });
     },
     placeCatalogItem: (catalogId, gridX, gridY, surface) => {
       const state = get();
@@ -224,7 +316,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
       if (!isValidPlacement(candidate, state.placedItems)) return false;
       return commitRoom(
         { ...readRoomSnapshot(state), placedItems: [...clonePlacedItems(state.placedItems), candidate] },
-        { selectedItemId: candidate.id, placingCatalogId: null },
+        { selectedItemId: candidate.id, placingCatalogId: null, placementPreview: null },
       );
     },
     beginDrag: (id) => {
@@ -235,6 +327,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
         dragPreview: { item: { ...item }, valid: true },
         selectedItemId: id,
         placingCatalogId: null,
+        placementPreview: null,
       });
     },
     previewMove: (candidate) => {

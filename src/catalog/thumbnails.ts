@@ -1,0 +1,17 @@
+export const catalogThumbnails: Readonly<Record<string, number>> = {
+  'masjid-model': require('../../assets/catalog-thumbnails/masjid-model.png'),
+  'fanous-lantern': require('../../assets/catalog-thumbnails/fanous-lantern.png'),
+  tasbih: require('../../assets/catalog-thumbnails/tasbih.png'),
+  'rehal-quran': require('../../assets/catalog-thumbnails/rehal-quran.png'),
+  minbar: require('../../assets/catalog-thumbnails/minbar.png'),
+  'floor-cushion': require('../../assets/catalog-thumbnails/floor-cushion.png'),
+  curtains: require('../../assets/catalog-thumbnails/curtains.png'),
+  minaret: require('../../assets/catalog-thumbnails/minaret.png'),
+  'wall-art': require('../../assets/catalog-thumbnails/wall-art.png'),
+  'tasbih-crescent-hook': require('../../assets/catalog-thumbnails/tasbih-crescent-hook.png'),
+  'tasbih-mihrab-rack': require('../../assets/catalog-thumbnails/tasbih-mihrab-rack.png'),
+  'tasbih-geometric-rail': require('../../assets/catalog-thumbnails/tasbih-geometric-rail.png'),
+  'tasbih-mashrabiya-board': require('../../assets/catalog-thumbnails/tasbih-mashrabiya-board.png'),
+  'tasbih-palm-hanger': require('../../assets/catalog-thumbnails/tasbih-palm-hanger.png'),
+  'mini-masjid': require('../../assets/catalog-thumbnails/mini-masjid.png'),
+};

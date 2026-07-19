@@ -25,13 +25,13 @@ const pinchPlane = new THREE.Plane();
 let hasPinchAnchor = false;
 let dragGrabOffset = new THREE.Vector3();
 let activeDragSurface: PlacementSurface | null = null;
-let preparedPan: { mode: 'item' | 'orbit'; x: number; y: number; placedId?: string } | null = null;
-let activePanMode: 'item' | 'orbit' | null = null;
+let preparedPan: { mode: 'item' | 'placement' | 'orbit'; x: number; y: number; placedId?: string } | null = null;
+let activePanMode: 'item' | 'placement' | 'orbit' | null = null;
 let orbitStartYaw = DEFAULT_CAMERA_YAW;
 let pinchActive = false;
 let suppressTapUntil = 0;
 
-function findTaggedParent(object: THREE.Object3D, key: 'placedItemId' | 'placementSurface') {
+function findTaggedParent(object: THREE.Object3D, key: 'placedItemId' | 'placementPreviewId' | 'placementSurface') {
   let current: THREE.Object3D | null = object;
   while (current) {
     if (current.userData[key]) return current.userData[key] as string;
@@ -55,12 +55,45 @@ function findPlacedId(hits: THREE.Intersection[]) {
   return null;
 }
 
+function findPlacementPreviewId(hits: THREE.Intersection[]) {
+  for (const hit of hits) {
+    const id = findTaggedParent(hit.object, 'placementPreviewId');
+    if (id) return id;
+  }
+  return null;
+}
+
 function surfaceHit(hits: THREE.Intersection[], accepted?: readonly PlacementSurface[]) {
   for (const hit of hits) {
     const surface = findTaggedParent(hit.object, 'placementSurface') as PlacementSurface | null;
     if (surface && (!accepted || accepted.includes(surface))) return { surface, point: hit.point };
   }
   return null;
+}
+
+function updatePlacementFromPointer(x: number, y: number) {
+  const store = useRoomStore.getState();
+  const preview = store.placementPreview;
+  const catalogItem = store.placingCatalogId ? catalogById[store.placingCatalogId] : null;
+  if (!preview || !catalogItem) return false;
+
+  const hit = surfaceHit(intersectionsAt(x, y), catalogItem.allowedSurfaces);
+  if (!hit) return false;
+
+  const anchor = worldToPlacement(
+    hit.point,
+    catalogItem,
+    hit.surface,
+    preview.item.rotation,
+    hit.surface !== 'floor',
+  );
+  store.previewPlacement({ ...preview.item, ...anchor });
+  return useRoomStore.getState().placementPreview?.valid ?? false;
+}
+
+export function updateEditorPlacementHover(x: number, y: number) {
+  if (pinchActive || activePanMode || !useRoomStore.getState().placingCatalogId) return;
+  updatePlacementFromPointer(x, y);
 }
 
 export function setEditorRootState(state: RootState) {
@@ -89,22 +122,17 @@ export function getEditorRootState() {
 
 export function handleEditorTap(x: number, y: number) {
   if (pinchActive || Date.now() < suppressTapUntil) return;
-  const hits = intersectionsAt(x, y);
-  const placedId = findPlacedId(hits);
-  if (placedId) {
-    useRoomStore.getState().selectItem(placedId);
+  const store = useRoomStore.getState();
+  if (store.placingCatalogId) {
+    if (updatePlacementFromPointer(x, y)) useRoomStore.getState().commitPlacementPreview();
     return;
   }
 
-  const store = useRoomStore.getState();
-  const placingItem = store.placingCatalogId ? catalogById[store.placingCatalogId] : null;
-  if (placingItem) {
-    const hit = surfaceHit(hits, placingItem.allowedSurfaces);
-    if (hit) {
-      const anchor = worldToPlacement(hit.point, placingItem, hit.surface, 0, hit.surface !== 'floor');
-      store.placeCatalogItem(placingItem.id, anchor.gridX, anchor.gridY, hit.surface);
-      return;
-    }
+  const hits = intersectionsAt(x, y);
+  const placedId = findPlacedId(hits);
+  if (placedId) {
+    store.selectItem(placedId);
+    return;
   }
   store.selectItem(null);
 }
@@ -189,12 +217,26 @@ function keepTargetInsideRoom(target: THREE.Vector3) {
 
 export function prepareEditorPan(x: number, y: number) {
   if (pinchActive) return;
-  const placedId = findPlacedId(intersectionsAt(x, y));
+  const hits = intersectionsAt(x, y);
+  const store = useRoomStore.getState();
+  const placingItem = store.placingCatalogId ? catalogById[store.placingCatalogId] : null;
+  if (placingItem) {
+    preparedPan = findPlacementPreviewId(hits) === store.placementPreview?.item.id
+      ? { mode: 'placement', x, y }
+      : { mode: 'orbit', x, y };
+    return;
+  }
+  const placedId = findPlacedId(hits);
   preparedPan = placedId ? { mode: 'item', x, y, placedId } : { mode: 'orbit', x, y };
 }
 
 export function activateEditorPan() {
   if (!preparedPan || pinchActive) return;
+  if (preparedPan.mode === 'placement') {
+    activePanMode = 'placement';
+    updatePlacementFromPointer(preparedPan.x, preparedPan.y);
+    return;
+  }
   if (preparedPan.mode === 'item' && preparedPan.placedId) {
     activePanMode = beginItemDrag(preparedPan.placedId, preparedPan.x, preparedPan.y) ? 'item' : null;
     return;
@@ -205,6 +247,10 @@ export function activateEditorPan() {
 
 export function updateEditorPan(x: number, y: number, translationX: number) {
   if (pinchActive) return;
+  if (activePanMode === 'placement') {
+    updatePlacementFromPointer(x, y);
+    return;
+  }
   if (activePanMode === 'item') {
     updateItemDrag(x, y);
     return;
@@ -214,9 +260,11 @@ export function updateEditorPan(x: number, y: number, translationX: number) {
   }
 }
 
-export function finishEditorPan(success: boolean) {
+export function finishEditorPan(success: boolean, x: number, y: number) {
   const store = useRoomStore.getState();
-  if (activePanMode === 'item') {
+  if (activePanMode === 'placement') {
+    if (success && updatePlacementFromPointer(x, y)) useRoomStore.getState().commitPlacementPreview();
+  } else if (activePanMode === 'item') {
     if (success) store.finishDrag();
     else store.cancelDrag();
     clearItemDrag();

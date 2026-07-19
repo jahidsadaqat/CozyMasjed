@@ -50,7 +50,7 @@ export function WelcomeGuide() {
         <Text style={styles.subtitle}>A small, peaceful space made by you</Text>
 
         <View style={styles.guideList}>
-          <GuideRow icon={<Plus color={palette.ink} size={19} />}>Choose Add, then tap the floor or a wall</GuideRow>
+          <GuideRow icon={<Plus color={palette.ink} size={19} />}>Choose Add, then move the item into place</GuideRow>
           <GuideRow icon={<Move color={palette.ink} size={19} />}>Tap furniture to select it, then drag to move</GuideRow>
           <GuideRow icon={<Hand color={palette.ink} size={19} />}>Drag empty space to look around the room</GuideRow>
           <GuideRow icon={<ZoomIn color={palette.ink} size={19} />}>Pinch the room to zoom in and out</GuideRow>

@@ -13,6 +13,7 @@ import {
   prepareEditorPan,
   setEditorRootState,
   updateEditorPan,
+  updateEditorPlacementHover,
   updateEditorPinch,
 } from './editorController';
 
@@ -34,7 +35,7 @@ export function RoomCanvas() {
       .onBegin((event) => prepareEditorPan(event.x, event.y))
       .onStart(() => activateEditorPan())
       .onUpdate((event) => updateEditorPan(event.x, event.y, event.translationX))
-      .onFinalize((_event, success) => finishEditorPan(success));
+      .onFinalize((event, success) => finishEditorPan(success, event.x, event.y));
     const pinch = Gesture.Pinch()
       .runOnJS(true)
       .onStart((event) => beginEditorPinch(event.focalX, event.focalY))
@@ -45,7 +46,14 @@ export function RoomCanvas() {
 
   return (
     <GestureDetector gesture={gesture}>
-      <View style={styles.canvas}>
+      <View
+        onPointerMove={
+          Platform.OS === 'web'
+            ? (event) => updateEditorPlacementHover(event.nativeEvent.offsetX, event.nativeEvent.offsetY)
+            : undefined
+        }
+        style={styles.canvas}
+      >
         <Canvas
           orthographic
           camera={{ position: [...DEFAULT_CAMERA_POSITION], zoom: DEFAULT_CAMERA_ZOOM, near: 0.1, far: 100 }}
