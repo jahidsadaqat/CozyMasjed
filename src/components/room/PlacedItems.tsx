@@ -3,7 +3,7 @@ import { catalogById } from '../../catalog/catalog';
 import { CELL_SIZE, getPlacementSize, placementToWorld, type PlacedItem } from '../../domain/grid';
 import { useRoomStore } from '../../store/roomStore';
 import { palette } from '../../theme/palette';
-import { CatalogModel } from '../models/CatalogModel';
+import { CatalogItemModel } from '../models/CatalogItemModel';
 
 function modelRotation(item: PlacedItem): [number, number, number] {
   const catalogItem = catalogById[item.catalogId];
@@ -63,7 +63,7 @@ export function PlacedItems() {
               <SelectionFootprint item={item} invalid={isDragging && !dragPreview.valid} />
             ) : null}
             <Suspense fallback={null}>
-              <CatalogModel
+              <CatalogItemModel
                 item={catalogItem}
                 placedItemId={item.id}
                 enablePointLight={activePointLightIds.has(item.id)}

@@ -1,11 +1,11 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import type { CatalogItem } from '../../catalog/types';
+import type { AssetCatalogItem } from '../../catalog/types';
 import { useRoomStore } from '../../store/roomStore';
 import { useMeshoptGLTF } from './useMeshoptGLTF';
 
 type CatalogModelProps = {
-  item: CatalogItem;
+  item: AssetCatalogItem;
   position?: [number, number, number];
   rotation?: [number, number, number];
   scale?: number;
