@@ -11,12 +11,13 @@ const SHOW_MODEL_VALIDATION_SCENE = false;
 export function RoomScene() {
   const floorColor = useRoomStore((state) => state.floorColor);
   const wallColor = useRoomStore((state) => state.wallColor);
+  const backgroundColor = useRoomStore((state) => state.backgroundColor);
   const accentColor = useRoomStore((state) => state.accentColor);
   const lighting = useRoomStore((state) => state.lighting);
 
   return (
     <>
-      <SceneBackdrop lighting={lighting} />
+      <SceneBackdrop lighting={lighting} baseColor={backgroundColor} />
       <ambientLight intensity={0.6} color="#FFFFFF" />
       <hemisphereLight intensity={0.5} color="#FFF6E8" groundColor="#D9B08C" />
       <directionalLight position={[4, 7, 3]} intensity={1.3} color="#FFF3DC" />

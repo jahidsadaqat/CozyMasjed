@@ -31,7 +31,7 @@ import { catalogThumbnails } from '../../catalog/thumbnails';
 import type { CatalogCategory, CatalogItem } from '../../catalog/types';
 import { captureSaveAndShareRoom } from '../../services/roomSnapshot';
 import { useRoomStore } from '../../store/roomStore';
-import { floorSwatches, palette, wallSwatches } from '../../theme/palette';
+import { backgroundSwatches, floorSwatches, palette, wallSwatches } from '../../theme/palette';
 
 type OpenPanel = 'catalog' | 'style' | null;
 type FilterCategory = CatalogCategory | 'All';
@@ -203,6 +203,7 @@ function SwatchRow({
               key={color}
               accessibilityLabel={`${label} color ${color}`}
               accessibilityRole="button"
+              accessibilityState={{ selected: active }}
               onPress={() => {
                 tapFeedback();
                 onSelect(color);
@@ -221,8 +222,10 @@ function SwatchRow({
 function StylePanel({ onClose }: { onClose: () => void }) {
   const floorColor = useRoomStore((state) => state.floorColor);
   const wallColor = useRoomStore((state) => state.wallColor);
+  const backgroundColor = useRoomStore((state) => state.backgroundColor);
   const setFloorColor = useRoomStore((state) => state.setFloorColor);
   const setWallColor = useRoomStore((state) => state.setWallColor);
+  const setBackgroundColor = useRoomStore((state) => state.setBackgroundColor);
 
   return (
     <Animated.View entering={FadeInDown.duration(220)} exiting={FadeOutDown.duration(160)} style={[styles.sheet, styles.styleSheet]}>
@@ -236,6 +239,12 @@ function StylePanel({ onClose }: { onClose: () => void }) {
       </View>
       <SwatchRow label="Floor" colors={floorSwatches} selected={floorColor} onSelect={setFloorColor} />
       <SwatchRow label="Walls" colors={wallSwatches} selected={wallColor} onSelect={setWallColor} />
+      <SwatchRow
+        label="Background"
+        colors={backgroundSwatches}
+        selected={backgroundColor}
+        onSelect={setBackgroundColor}
+      />
     </Animated.View>
   );
 }

@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { catalogById } from '../catalog/catalog';
 import { isWithinGrid, placementsOverlap, type PlacedItem, type QuarterTurn } from '../domain/grid';
+import { palette } from '../theme/palette';
 import {
   readRoomSnapshot,
   type LightingMode,
@@ -73,7 +74,9 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
 
 function parseRoomSnapshot(value: unknown): RoomSnapshot | null {
   if (!isRecord(value)) return null;
-  const { placedItems, floorColor, wallColor, accentColor, lighting } = value;
+  const { placedItems, floorColor, wallColor, backgroundColor: storedBackgroundColor, accentColor, lighting } = value;
+  if (storedBackgroundColor !== undefined && !isColor(storedBackgroundColor)) return null;
+  const backgroundColor = storedBackgroundColor ?? palette.skyTop;
   if (
     !Array.isArray(placedItems) ||
     placedItems.length > MAX_PERSISTED_ITEMS ||
@@ -100,7 +103,7 @@ function parseRoomSnapshot(value: unknown): RoomSnapshot | null {
     parsedItems.push(item);
   }
 
-  return { placedItems: parsedItems, floorColor, wallColor, accentColor, lighting };
+  return { placedItems: parsedItems, floorColor, wallColor, backgroundColor, accentColor, lighting };
 }
 
 function parseStoredRoom(raw: string | null): RoomSnapshot | null {

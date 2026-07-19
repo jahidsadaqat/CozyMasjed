@@ -18,3 +18,4 @@ export const palette = {
 
 export const floorSwatches = ['#A96E49', '#C99362', '#8E6047', '#6F5141', '#D9C3A0'];
 export const wallSwatches = ['#F4E6C8', '#D8E5D0', '#C7DDD8', '#E8CBC8', '#CED9E9', '#E9DCCB'];
+export const backgroundSwatches = ['#A8DED4', '#B8D5E7', '#C9C3E0', '#E3BEC4', '#E8BD92', '#B8CBA9'];

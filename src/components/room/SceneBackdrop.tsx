@@ -8,7 +8,11 @@ const WIDTH = 128;
 const HEIGHT = 256;
 
 function hexToRgb(hex: string): Rgb {
-  return [Number.parseInt(hex.slice(1, 3), 16), Number.parseInt(hex.slice(3, 5), 16), Number.parseInt(hex.slice(5, 7), 16)];
+  return [
+    Number.parseInt(hex.slice(1, 3), 16),
+    Number.parseInt(hex.slice(3, 5), 16),
+    Number.parseInt(hex.slice(5, 7), 16),
+  ];
 }
 
 function mix(a: Rgb, b: Rgb, amount: number): Rgb {
@@ -29,11 +33,14 @@ function softEllipse(x: number, y: number, cx: number, cy: number, rx: number, r
   return Math.exp(-distance * 2.3);
 }
 
-function buildBackdropTexture(lighting: LightingMode) {
+function buildBackdropTexture(lighting: LightingMode, baseColor: string) {
   const isWarm = lighting === 'warm';
-  const top = hexToRgb(isWarm ? '#7C9B97' : '#A8DED4');
-  const middle = hexToRgb(isWarm ? '#E5A56F' : '#F7D6AD');
-  const bottom = hexToRgb(isWarm ? '#B95E49' : '#E99A68');
+  const base = hexToRgb(baseColor);
+  const top = isWarm
+    ? mix(base, hexToRgb('#637A78'), 0.32)
+    : mix(base, hexToRgb('#FFFFFF'), 0.04);
+  const middle = mix(base, hexToRgb(isWarm ? '#E7AD79' : '#FFF1D8'), isWarm ? 0.55 : 0.48);
+  const bottom = mix(base, hexToRgb(isWarm ? '#B95E49' : '#E99A68'), isWarm ? 0.62 : 0.48);
   const cloud = hexToRgb(isWarm ? '#FFE2B7' : '#FFFBEA');
   const sun = hexToRgb(isWarm ? '#FFC46D' : '#FFF0B0');
   const pixels = new Uint8Array(WIDTH * HEIGHT * 4);
@@ -76,8 +83,8 @@ function buildBackdropTexture(lighting: LightingMode) {
   return texture;
 }
 
-export function SceneBackdrop({ lighting }: { lighting: LightingMode }) {
-  const texture = useMemo(() => buildBackdropTexture(lighting), [lighting]);
+export function SceneBackdrop({ lighting, baseColor }: { lighting: LightingMode; baseColor: string }) {
+  const texture = useMemo(() => buildBackdropTexture(lighting, baseColor), [baseColor, lighting]);
 
   useEffect(() => {
     return () => texture.dispose();

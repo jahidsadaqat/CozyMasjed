@@ -21,6 +21,7 @@ export type RoomSnapshot = {
   placedItems: PlacedItem[];
   floorColor: string;
   wallColor: string;
+  backgroundColor: string;
   accentColor: string;
   lighting: LightingMode;
 };
@@ -67,6 +68,7 @@ export type RoomState = RoomSnapshot & {
   readyModelItemIds: string[];
   setFloorColor: (color: string) => void;
   setWallColor: (color: string) => void;
+  setBackgroundColor: (color: string) => void;
   setAccentColor: (color: string) => void;
   toggleLighting: () => void;
   startPlacing: (catalogId: string) => void;
@@ -99,6 +101,7 @@ const initialRoom: RoomSnapshot = {
   placedItems: [],
   floorColor: palette.woodLight,
   wallColor: '#F4E6C8',
+  backgroundColor: palette.skyTop,
   accentColor: palette.mutedTeal,
   lighting: 'day',
 };
@@ -112,6 +115,7 @@ export function cloneRoomSnapshot(snapshot: RoomSnapshot): RoomSnapshot {
     placedItems: clonePlacedItems(snapshot.placedItems),
     floorColor: snapshot.floorColor,
     wallColor: snapshot.wallColor,
+    backgroundColor: snapshot.backgroundColor,
     accentColor: snapshot.accentColor,
     lighting: snapshot.lighting,
   };
@@ -129,6 +133,7 @@ export function roomSnapshotsEqual(a: RoomSnapshot, b: RoomSnapshot) {
   if (
     a.floorColor !== b.floorColor ||
     a.wallColor !== b.wallColor ||
+    a.backgroundColor !== b.backgroundColor ||
     a.accentColor !== b.accentColor ||
     a.lighting !== b.lighting ||
     a.placedItems.length !== b.placedItems.length
@@ -251,6 +256,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     readyModelItemIds: [],
     setFloorColor: (floorColor) => commitRoom({ ...readRoomSnapshot(get()), floorColor }),
     setWallColor: (wallColor) => commitRoom({ ...readRoomSnapshot(get()), wallColor }),
+    setBackgroundColor: (backgroundColor) => commitRoom({ ...readRoomSnapshot(get()), backgroundColor }),
     setAccentColor: (accentColor) => commitRoom({ ...readRoomSnapshot(get()), accentColor }),
     toggleLighting: () => {
       const room = readRoomSnapshot(get());
