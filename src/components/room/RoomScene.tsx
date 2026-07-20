@@ -1,7 +1,5 @@
 import { Suspense } from 'react';
-import { DustMotes } from '../DustMotes';
 import { GodRay } from '../GodRay';
-import { WeatherEffects } from '../WeatherEffects';
 import { useRoomStore } from '../../store/roomStore';
 import { weatherVisualProfiles } from '../../domain/weather';
 import { ModelValidationScene } from '../models/ModelValidationScene';
@@ -36,8 +34,6 @@ export function RoomScene() {
       />
       <RoomShell floorColor={floorColor} wallColor={wallColor} accentColor={accentColor} />
       <GodRay />
-      <DustMotes />
-      <WeatherEffects />
       <PlacedItems />
       {SHOW_MODEL_VALIDATION_SCENE ? (
         <Suspense fallback={null}>

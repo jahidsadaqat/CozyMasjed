@@ -93,12 +93,43 @@ function RoundButton({
   );
 }
 
-function WeatherPopover({ selected, onSelect }: { selected: WeatherMode; onSelect: (weather: WeatherMode) => void }) {
+function WeatherPopover({
+  selected,
+  soundOn,
+  onSelect,
+  onToggleSound,
+}: {
+  selected: WeatherMode;
+  soundOn: boolean;
+  onSelect: (weather: WeatherMode) => void;
+  onToggleSound: () => void;
+}) {
   return (
     <Animated.View entering={FadeInDown.duration(170)} exiting={FadeOutDown.duration(130)} style={styles.weatherPopover}>
       <View style={styles.weatherHeadingRow}>
         <Text style={styles.weatherHeading}>Weather</Text>
         <Text style={styles.weatherSelectedLabel}>{weatherVisualProfiles[selected].label}</Text>
+        <Pressable
+          accessibilityHint="Toggles ambient weather audio"
+          accessibilityLabel={soundOn ? 'Turn weather sound off' : 'Turn weather sound on'}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: soundOn }}
+          aria-checked={soundOn}
+          onPress={() => {
+            tapFeedback();
+            onToggleSound();
+            void AccessibilityInfo.announceForAccessibility(soundOn ? 'Weather sound off' : 'Weather sound on');
+          }}
+          style={({ pressed }) => [
+            styles.weatherSoundButton,
+            soundOn && styles.weatherSoundButtonActive,
+            pressed && styles.buttonPressed,
+          ]}
+        >
+          <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.weatherSoundIcon}>
+            {soundOn ? '🔊' : '🔇'}
+          </Text>
+        </Pressable>
       </View>
       <View accessibilityLabel="Weather choices" accessibilityRole="radiogroup" style={styles.weatherOptions}>
         {weatherModes.map((weather) => {
@@ -400,7 +431,7 @@ function SelectedItemActions() {
   );
 }
 
-export function EditorOverlay() {
+export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; onToggleSound: () => void }) {
   const [panel, setPanel] = useState<OpenPanel>(null);
   const [immersive, setImmersive] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -544,7 +575,14 @@ export function EditorOverlay() {
           </View>
         </View>
 
-        {panel === 'weather' ? <WeatherPopover selected={weather} onSelect={setWeather} /> : null}
+        {panel === 'weather' ? (
+          <WeatherPopover
+            selected={weather}
+            soundOn={soundOn}
+            onSelect={setWeather}
+            onToggleSound={onToggleSound}
+          />
+        ) : null}
 
         <View style={styles.mainPills}>
           <PillButton
@@ -609,6 +647,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
+    zIndex: 10,
     justifyContent: 'space-between',
   },
   topControls: {
@@ -658,7 +697,7 @@ const styles = StyleSheet.create({
     ...softShadow,
   },
   weatherHeadingRow: {
-    minHeight: 16,
+    minHeight: 44,
     paddingHorizontal: 5,
     marginBottom: 5,
     flexDirection: 'row',
@@ -674,6 +713,21 @@ const styles = StyleSheet.create({
     color: palette.inkMuted,
     fontFamily: 'Nunito_700Bold',
     fontSize: 10,
+  },
+  weatherSoundButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 251, 244, 0.82)',
+  },
+  weatherSoundButtonActive: {
+    backgroundColor: palette.ink,
+  },
+  weatherSoundIcon: {
+    fontSize: 19,
+    lineHeight: 24,
   },
   weatherOptions: {
     flexDirection: 'row',
