@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
-export const DEFAULT_CAMERA_POSITION = [5.8, 5.2, 6.4] as const;
-export const CAMERA_TARGET = [0, 0.52, 0] as const;
+export const DEFAULT_CAMERA_POSITION = [5.8, 6.45, 6.4] as const;
+export const CAMERA_TARGET = [0, 1.77, 0] as const;
 export const DEFAULT_CAMERA_ZOOM = 72;
 export const MIN_CAMERA_ZOOM = 52;
 export const MAX_CAMERA_ZOOM = 104;

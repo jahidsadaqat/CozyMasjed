@@ -549,6 +549,10 @@ export default function WeatherOverlay({ mode = null, soundOn = false, dom }) {
         zIndex: 5,
         transition: "opacity 600ms ease",
         opacity: mode ? 1 : 0,
+        WebkitMaskImage:
+          "radial-gradient(ellipse 68% 36% at 50% 58%, transparent 0%, transparent 70%, rgba(0,0,0,0.18) 80%, rgba(0,0,0,0.72) 92%, #000 100%)",
+        maskImage:
+          "radial-gradient(ellipse 68% 36% at 50% 58%, transparent 0%, transparent 70%, rgba(0,0,0,0.18) 80%, rgba(0,0,0,0.72) 92%, #000 100%)",
       }}
     />
   );

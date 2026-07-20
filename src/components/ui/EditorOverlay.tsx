@@ -22,6 +22,8 @@ import {
   Trash2,
   Undo2,
   Redo2,
+  Volume2,
+  VolumeX,
   Wind,
   X,
 } from 'lucide-react-native';
@@ -106,31 +108,6 @@ function WeatherPopover({
 }) {
   return (
     <Animated.View entering={FadeInDown.duration(170)} exiting={FadeOutDown.duration(130)} style={styles.weatherPopover}>
-      <View style={styles.weatherHeadingRow}>
-        <Text style={styles.weatherHeading}>Weather</Text>
-        <Text style={styles.weatherSelectedLabel}>{weatherVisualProfiles[selected].label}</Text>
-        <Pressable
-          accessibilityHint="Toggles ambient weather audio"
-          accessibilityLabel={soundOn ? 'Turn weather sound off' : 'Turn weather sound on'}
-          accessibilityRole="switch"
-          accessibilityState={{ checked: soundOn }}
-          aria-checked={soundOn}
-          onPress={() => {
-            tapFeedback();
-            onToggleSound();
-            void AccessibilityInfo.announceForAccessibility(soundOn ? 'Weather sound off' : 'Weather sound on');
-          }}
-          style={({ pressed }) => [
-            styles.weatherSoundButton,
-            soundOn && styles.weatherSoundButtonActive,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.weatherSoundIcon}>
-            {soundOn ? '🔊' : '🔇'}
-          </Text>
-        </Pressable>
-      </View>
       <View accessibilityLabel="Weather choices" accessibilityRole="radiogroup" style={styles.weatherOptions}>
         {weatherModes.map((weather) => {
           const active = weather === selected;
@@ -143,6 +120,7 @@ function WeatherPopover({
               accessibilityRole="radio"
               accessibilityState={{ checked: active, selected: active }}
               aria-checked={active}
+              hitSlop={4}
               onPress={() => {
                 tapFeedback();
                 onSelect(weather);
@@ -155,18 +133,34 @@ function WeatherPopover({
               ]}
             >
               <WeatherGlyph color={active ? palette.cream : palette.ink} size={20} weather={weather} />
-              <Text
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
-                numberOfLines={1}
-                style={[styles.weatherOptionLabel, active && styles.weatherOptionLabelActive]}
-              >
-                {label}
-              </Text>
             </Pressable>
           );
         })}
       </View>
+      <Pressable
+        accessibilityHint="Toggles ambient weather audio"
+        accessibilityLabel={soundOn ? 'Turn weather sound off' : 'Turn weather sound on'}
+        accessibilityRole="switch"
+        accessibilityState={{ checked: soundOn }}
+        aria-checked={soundOn}
+        hitSlop={4}
+        onPress={() => {
+          tapFeedback();
+          onToggleSound();
+          void AccessibilityInfo.announceForAccessibility(soundOn ? 'Weather sound off' : 'Weather sound on');
+        }}
+        style={({ pressed }) => [
+          styles.weatherSoundButton,
+          soundOn && styles.weatherSoundButtonActive,
+          pressed && styles.buttonPressed,
+        ]}
+      >
+        {soundOn ? (
+          <Volume2 color={palette.cream} size={19} />
+        ) : (
+          <VolumeX color={palette.ink} size={19} />
+        )}
+      </Pressable>
     </Animated.View>
   );
 }
@@ -685,49 +679,23 @@ const styles = StyleSheet.create({
     opacity: 0.38,
   },
   weatherPopover: {
-    width: '100%',
-    maxWidth: 340,
     alignSelf: 'flex-end',
     marginTop: 8,
-    paddingHorizontal: 8,
-    paddingTop: 7,
-    paddingBottom: 8,
-    borderRadius: 23,
-    backgroundColor: 'rgba(246, 244, 239, 0.97)',
-    ...softShadow,
-  },
-  weatherHeadingRow: {
-    minHeight: 44,
-    paddingHorizontal: 5,
-    marginBottom: 5,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  weatherHeading: {
-    color: palette.ink,
-    fontFamily: 'Nunito_800ExtraBold',
-    fontSize: 11,
-  },
-  weatherSelectedLabel: {
-    color: palette.inkMuted,
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 10,
+    gap: 5,
   },
   weatherSoundButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 251, 244, 0.82)',
+    backgroundColor: 'rgba(246, 244, 239, 0.96)',
+    ...softShadow,
   },
   weatherSoundButtonActive: {
     backgroundColor: palette.ink,
-  },
-  weatherSoundIcon: {
-    fontSize: 19,
-    lineHeight: 24,
   },
   weatherOptions: {
     flexDirection: 'row',
@@ -735,26 +703,16 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   weatherOption: {
-    flex: 1,
-    minWidth: 48,
-    minHeight: 54,
-    paddingVertical: 7,
-    borderRadius: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    backgroundColor: 'rgba(255, 251, 244, 0.72)',
+    backgroundColor: 'rgba(246, 244, 239, 0.96)',
+    ...softShadow,
   },
   weatherOptionActive: {
     backgroundColor: palette.ink,
-  },
-  weatherOptionLabel: {
-    color: palette.ink,
-    fontFamily: 'Nunito_800ExtraBold',
-    fontSize: 10,
-  },
-  weatherOptionLabelActive: {
-    color: palette.cream,
   },
   mainPills: {
     marginTop: 14,

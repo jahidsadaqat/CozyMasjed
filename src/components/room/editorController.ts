@@ -211,7 +211,7 @@ function pointOnCameraPlane(x: number, y: number, target: THREE.Vector3, result:
 
 function keepTargetInsideRoom(target: THREE.Vector3) {
   target.x = THREE.MathUtils.clamp(target.x, -0.82, 0.82);
-  target.y = THREE.MathUtils.clamp(target.y, 0.22, 0.92);
+  target.y = THREE.MathUtils.clamp(target.y, 1.47, 2.17);
   target.z = THREE.MathUtils.clamp(target.z, -0.82, 0.82);
 }
 

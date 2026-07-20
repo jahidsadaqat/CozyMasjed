@@ -17,19 +17,22 @@ export function RoomScene() {
   const accentColor = useRoomStore((state) => state.accentColor);
   const weather = useRoomStore((state) => state.weather);
   const weatherProfile = weatherVisualProfiles[weather];
+  const roomAmbientIntensity = Math.max(weatherProfile.ambientIntensity, 0.55);
+  const roomHemisphereIntensity = Math.max(weatherProfile.hemisphereIntensity, 0.45);
+  const roomDirectionalIntensity = Math.max(weatherProfile.directionalIntensity, 0.9);
 
   return (
     <>
       <SceneBackdrop backgroundId={backgroundId} weather={weather} />
-      <ambientLight intensity={weatherProfile.ambientIntensity} color={weatherProfile.ambientColor} />
+      <ambientLight intensity={roomAmbientIntensity} color={weatherProfile.ambientColor} />
       <hemisphereLight
-        intensity={weatherProfile.hemisphereIntensity}
+        intensity={roomHemisphereIntensity}
         color={weatherProfile.hemisphereSkyColor}
         groundColor={weatherProfile.hemisphereGroundColor}
       />
       <directionalLight
         position={[4, 7, 3]}
-        intensity={weatherProfile.directionalIntensity}
+        intensity={roomDirectionalIntensity}
         color={weatherProfile.directionalColor}
       />
       <RoomShell floorColor={floorColor} wallColor={wallColor} accentColor={accentColor} />
