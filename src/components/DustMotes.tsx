@@ -60,12 +60,12 @@ function createDustData(): DustData {
 }
 
 export function DustMotes() {
-  const lighting = useRoomStore((state) => state.lighting);
+  const weather = useRoomStore((state) => state.weather);
   const positionAttributeRef = useRef<THREE.BufferAttribute>(null);
   const dataRef = useRef<DustData | null>(null);
   if (!dataRef.current) dataRef.current = createDustData();
   const data = dataRef.current;
-  const visible = lighting === 'day';
+  const visible = weather === 'sunny';
 
   useFrame((state, frameDelta) => {
     if (!visible) return;

@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { catalogById } from '../catalog/catalog';
 import { isWithinGrid, placementsOverlap, type PlacedItem, type QuarterTurn } from '../domain/grid';
+import { defaultWeatherMode, isWeatherMode } from '../domain/weather';
 import {
   backgroundIdFromLegacyColor,
   defaultBackgroundId,
@@ -10,14 +11,15 @@ import {
 } from '../theme/backgrounds';
 import {
   readRoomSnapshot,
-  type LightingMode,
   type RoomSnapshot,
   type RoomState,
   useRoomStore,
 } from './roomStore';
 
-const STORAGE_KEY = 'deen-rooms:room:v1';
-const STORAGE_VERSION = 1;
+const STORAGE_KEY = 'deen-rooms:room:v2';
+const LEGACY_STORAGE_KEY = 'deen-rooms:room:v1';
+const STORAGE_VERSION = 2;
+const LEGACY_STORAGE_VERSION = 1;
 const MAX_PERSISTED_ITEMS = 128;
 const WRITE_DEBOUNCE_MS = 300;
 
@@ -32,10 +34,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isColor(value: unknown): value is string {
   return typeof value === 'string' && /^#[\dA-Fa-f]{6}([\dA-Fa-f]{2})?$/.test(value);
-}
-
-function isLightingMode(value: unknown): value is LightingMode {
-  return value === 'day' || value === 'warm';
 }
 
 function isQuarterTurn(value: unknown): value is QuarterTurn {
@@ -85,20 +83,27 @@ function parseRoomSnapshot(value: unknown): RoomSnapshot | null {
     backgroundId: storedBackgroundId,
     backgroundColor: legacyBackgroundColor,
     accentColor,
-    lighting,
+    weather: storedWeather,
+    lighting: legacyLighting,
   } = value;
   const backgroundId = isBackgroundId(storedBackgroundId)
     ? storedBackgroundId
     : storedBackgroundId === undefined
       ? backgroundIdFromLegacyColor(legacyBackgroundColor)
       : defaultBackgroundId;
+  const weather = isWeatherMode(storedWeather)
+    ? storedWeather
+    : legacyLighting === 'warm'
+      ? 'night'
+      : legacyLighting === 'day'
+        ? 'sunny'
+        : defaultWeatherMode;
   if (
     !Array.isArray(placedItems) ||
     placedItems.length > MAX_PERSISTED_ITEMS ||
     !isColor(floorColor) ||
     !isColor(wallColor) ||
-    !isColor(accentColor) ||
-    !isLightingMode(lighting)
+    !isColor(accentColor)
   ) {
     return null;
   }
@@ -118,14 +123,19 @@ function parseRoomSnapshot(value: unknown): RoomSnapshot | null {
     parsedItems.push(item);
   }
 
-  return { placedItems: parsedItems, floorColor, wallColor, backgroundId, accentColor, lighting };
+  return { placedItems: parsedItems, floorColor, wallColor, backgroundId, accentColor, weather };
 }
 
 function parseStoredRoom(raw: string | null): RoomSnapshot | null {
   if (!raw) return null;
   try {
     const envelope: unknown = JSON.parse(raw);
-    if (!isRecord(envelope) || envelope.version !== STORAGE_VERSION) return null;
+    if (
+      !isRecord(envelope) ||
+      (envelope.version !== STORAGE_VERSION && envelope.version !== LEGACY_STORAGE_VERSION)
+    ) {
+      return null;
+    }
     return parseRoomSnapshot(envelope.room);
   } catch {
     return null;
@@ -202,10 +212,13 @@ export function useRoomPersistence() {
 
     const restore = async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const currentRaw = await AsyncStorage.getItem(STORAGE_KEY);
+        const currentSnapshot = parseStoredRoom(currentRaw);
+        const legacyRaw = currentSnapshot ? null : await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
+        const raw = currentSnapshot ? currentRaw : legacyRaw;
         restoredRaw = raw;
         if (disposed) return;
-        const snapshot = parseStoredRoom(raw);
+        const snapshot = currentSnapshot ?? parseStoredRoom(legacyRaw);
         if (__DEV__) console.info(`[Deen Rooms] restore found ${snapshot?.placedItems.length ?? 0} item(s)`);
         if (snapshot) {
           restoredSnapshot = true;

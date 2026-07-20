@@ -2,6 +2,7 @@ import { useFrame } from '@react-three/fiber/native';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { AssetCatalogItem } from '../../catalog/types';
+import { weatherVisualProfiles } from '../../domain/weather';
 import { useRoomStore } from '../../store/roomStore';
 import { applyCatalogMaterialPolicy } from './catalogMaterialPolicy';
 import { useMeshoptGLTF } from './useMeshoptGLTF';
@@ -63,7 +64,8 @@ export function CatalogModel({
   enablePointLight = true,
 }: CatalogModelProps) {
   const gltf = useMeshoptGLTF(item.asset);
-  const lighting = useRoomStore((state) => state.lighting);
+  const weather = useRoomStore((state) => state.weather);
+  const lampsActive = weatherVisualProfiles[weather].lampsActive;
 
   const normalizedScene = useMemo(() => {
     const scene = gltf.scene.clone(true);
@@ -113,12 +115,12 @@ export function CatalogModel({
       const materials = Array.isArray(object.material) ? object.material : [object.material];
       materials.forEach((material) => {
         if (!(material instanceof THREE.MeshStandardMaterial)) return;
-        material.emissive.set(lighting === 'warm' ? '#B8682D' : '#000000');
-        material.emissiveIntensity = lighting === 'warm' ? 0.32 : 0;
+        material.emissive.set(lampsActive ? '#B8682D' : '#000000');
+        material.emissiveIntensity = lampsActive ? 0.32 : 0;
         material.needsUpdate = true;
       });
     });
-  }, [item.emitsLight, lighting, normalizedScene]);
+  }, [item.emitsLight, lampsActive, normalizedScene]);
 
   useEffect(() => {
     return () => {
@@ -135,7 +137,7 @@ export function CatalogModel({
   return (
     <group position={position} rotation={rotation} scale={scale} userData={{ catalogId: item.id, placedItemId }}>
       <primitive object={normalizedScene} dispose={null} />
-      {item.emitsLight && enablePointLight && lighting === 'warm' ? (
+      {item.emitsLight && enablePointLight && lampsActive ? (
         <FlickeringPointLight phaseKey={placedItemId ?? item.id} />
       ) : null}
     </group>

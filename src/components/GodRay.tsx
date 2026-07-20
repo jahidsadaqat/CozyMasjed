@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FLOOR_TOP } from '../domain/grid';
+import { weatherVisualProfiles } from '../domain/weather';
 import { useRoomStore } from '../store/roomStore';
 import { createRadialGradientTexture } from './BlobShadow';
 import {
@@ -17,9 +18,9 @@ const BEAM_RIBBONS = [
   { rotation: (Math.PI * 2) / 3, opacity: 0.05 },
 ] as const;
 
-const NIGHT_BACKGROUNDS = new Set(['midnight-aurora', 'ramadan-twilight']);
 const DAY_BEAM_COLOR = '#FFDCA4';
 const MOON_BEAM_COLOR = '#F5E4CE';
+const OVERCAST_BEAM_COLOR = '#E5EAF0';
 const WINDOW_GLOW_COLOR = '#FFE8C2';
 const BEAM_TEXTURE_WIDTH = 64;
 const BEAM_TEXTURE_HEIGHT = 128;
@@ -101,14 +102,14 @@ const windowGlowTexture = createRadialGradientTexture({
 });
 
 export function GodRay() {
-  const lighting = useRoomStore((state) => state.lighting);
-  const backgroundId = useRoomStore((state) => state.backgroundId);
-  const hasNightSky = NIGHT_BACKGROUNDS.has(backgroundId);
-  const hasWarmLighting = lighting === 'warm';
-  const beamColor = hasNightSky || hasWarmLighting ? MOON_BEAM_COLOR : DAY_BEAM_COLOR;
-  const beamOpacity = (hasNightSky ? 0.7 : 1) * (hasWarmLighting ? 0.72 : 1);
-  const poolOpacity = (hasNightSky ? 0.58 : 0.78) * (hasWarmLighting ? 0.78 : 1);
-  const windowGlowOpacity = hasNightSky ? 0.3 : 0.18;
+  const weather = useRoomStore((state) => state.weather);
+  const weatherProfile = weatherVisualProfiles[weather];
+  const isNight = weather === 'night';
+  const isOvercast = weather === 'cloudy' || weather === 'rainy';
+  const beamColor = isNight ? MOON_BEAM_COLOR : isOvercast ? OVERCAST_BEAM_COLOR : DAY_BEAM_COLOR;
+  const beamOpacity = weatherProfile.godRayIntensity;
+  const poolOpacity = 0.78 * weatherProfile.godRayIntensity;
+  const windowGlowOpacity = 0.025 + weatherProfile.godRayIntensity * 0.15;
 
   return (
     <group>
@@ -164,7 +165,7 @@ export function GodRay() {
         <circleGeometry args={[1, 48]} />
         <meshBasicMaterial
           blending={THREE.AdditiveBlending}
-          color={hasNightSky || hasWarmLighting ? MOON_BEAM_COLOR : '#FFDC96'}
+          color={beamColor}
           depthWrite={false}
           map={lightPoolTexture}
           opacity={poolOpacity}

@@ -4,6 +4,8 @@ import {
   BookOpen,
   Camera,
   ChevronLeft,
+  Cloud,
+  CloudRain,
   CopyPlus,
   Frame,
   Lamp,
@@ -20,6 +22,7 @@ import {
   Trash2,
   Undo2,
   Redo2,
+  Wind,
   X,
 } from 'lucide-react-native';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -29,15 +32,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { catalog, catalogById } from '../../catalog/catalog';
 import { catalogThumbnails } from '../../catalog/thumbnails';
 import type { CatalogCategory, CatalogItem } from '../../catalog/types';
+import { weatherModes, weatherVisualProfiles, type WeatherMode } from '../../domain/weather';
 import { captureSaveAndShareRoom } from '../../services/roomSnapshot';
 import { useRoomStore } from '../../store/roomStore';
 import { backgroundOptions, type BackgroundId } from '../../theme/backgrounds';
 import { floorSwatches, palette, wallSwatches } from '../../theme/palette';
 
-type OpenPanel = 'catalog' | 'style' | null;
+type OpenPanel = 'catalog' | 'style' | 'weather' | null;
 type FilterCategory = CatalogCategory | 'All';
 
 const categories: readonly FilterCategory[] = ['All', 'Prayer', 'Lights', 'Seating', 'Decor', 'Wall'];
+
+function WeatherGlyph({ weather, color, size = 20 }: { weather: WeatherMode; color: string; size?: number }) {
+  if (weather === 'cloudy') return <Cloud color={color} size={size} />;
+  if (weather === 'rainy') return <CloudRain color={color} size={size} />;
+  if (weather === 'windy') return <Wind color={color} size={size} />;
+  if (weather === 'night') return <MoonStar color={color} size={size} />;
+  return <Sun color={color} size={size} />;
+}
 
 function tapFeedback() {
   void Haptics.selectionAsync();
@@ -48,22 +60,83 @@ function RoundButton({
   icon,
   onPress,
   disabled = false,
+  active = false,
+  accessibilityHint,
+  expanded,
 }: {
   label: string;
   icon: ReactNode;
   onPress: () => void;
   disabled?: boolean;
+  active?: boolean;
+  accessibilityHint?: string;
+  expanded?: boolean;
 }) {
   return (
     <Pressable
+      accessibilityHint={accessibilityHint}
       accessibilityLabel={label}
       accessibilityRole="button"
+      accessibilityState={{ disabled, expanded }}
+      aria-expanded={expanded}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.roundButton, pressed && styles.buttonPressed, disabled && styles.disabled]}
+      style={({ pressed }) => [
+        styles.roundButton,
+        active && styles.roundButtonActive,
+        pressed && styles.buttonPressed,
+        disabled && styles.disabled,
+      ]}
     >
       {icon}
     </Pressable>
+  );
+}
+
+function WeatherPopover({ selected, onSelect }: { selected: WeatherMode; onSelect: (weather: WeatherMode) => void }) {
+  return (
+    <Animated.View entering={FadeInDown.duration(170)} exiting={FadeOutDown.duration(130)} style={styles.weatherPopover}>
+      <View style={styles.weatherHeadingRow}>
+        <Text style={styles.weatherHeading}>Weather</Text>
+        <Text style={styles.weatherSelectedLabel}>{weatherVisualProfiles[selected].label}</Text>
+      </View>
+      <View accessibilityLabel="Weather choices" accessibilityRole="radiogroup" style={styles.weatherOptions}>
+        {weatherModes.map((weather) => {
+          const active = weather === selected;
+          const label = weatherVisualProfiles[weather].label;
+          return (
+            <Pressable
+              key={weather}
+              accessibilityHint="Changes the room atmosphere"
+              accessibilityLabel={`${label} weather`}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active, selected: active }}
+              aria-checked={active}
+              onPress={() => {
+                tapFeedback();
+                onSelect(weather);
+                void AccessibilityInfo.announceForAccessibility(`${label} weather selected`);
+              }}
+              style={({ pressed }) => [
+                styles.weatherOption,
+                active && styles.weatherOptionActive,
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              <WeatherGlyph color={active ? palette.cream : palette.ink} size={20} weather={weather} />
+              <Text
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+                numberOfLines={1}
+                style={[styles.weatherOptionLabel, active && styles.weatherOptionLabelActive]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </Animated.View>
   );
 }
 
@@ -339,12 +412,12 @@ export function EditorOverlay() {
   const readyModelItemIds = useRoomStore((state) => state.readyModelItemIds);
   const backgroundId = useRoomStore((state) => state.backgroundId);
   const readyBackgroundId = useRoomStore((state) => state.readyBackgroundId);
-  const lighting = useRoomStore((state) => state.lighting);
+  const weather = useRoomStore((state) => state.weather);
   const canUndo = useRoomStore((state) => state.past.length > 0);
   const canRedo = useRoomStore((state) => state.future.length > 0);
   const selectItem = useRoomStore((state) => state.selectItem);
   const cancelPlacement = useRoomStore((state) => state.cancelPlacement);
-  const toggleLighting = useRoomStore((state) => state.toggleLighting);
+  const setWeather = useRoomStore((state) => state.setWeather);
   const undo = useRoomStore((state) => state.undo);
   const redo = useRoomStore((state) => state.redo);
   const cancelDrag = useRoomStore((state) => state.cancelDrag);
@@ -420,17 +493,26 @@ export function EditorOverlay() {
       <View pointerEvents="box-none" style={styles.topControls}>
         <View style={styles.topRow}>
           <RoundButton
-            label={placingCatalogId ? 'Cancel placement' : panel ? 'Close panel' : 'Back'}
+            label={placingCatalogId ? 'Cancel placement' : panel === 'weather' ? 'Close weather menu' : panel ? 'Close panel' : 'Back'}
             icon={<ChevronLeft color={palette.ink} size={24} />}
             onPress={handleBack}
           />
           <View style={styles.topActions}>
             <RoundButton
-              label={lighting === 'day' ? 'Use warm lighting' : 'Use daylight'}
-              icon={lighting === 'day' ? <Sun color={palette.ink} size={21} /> : <MoonStar color={palette.ink} size={21} />}
+              accessibilityHint={panel === 'weather' ? 'Closes the weather choices' : 'Opens five weather choices'}
+              active={panel === 'weather'}
+              expanded={panel === 'weather'}
+              label={`Weather: ${weatherVisualProfiles[weather].label}. ${panel === 'weather' ? 'Close' : 'Open'} weather menu`}
+              icon={
+                <WeatherGlyph
+                  color={panel === 'weather' ? palette.cream : palette.ink}
+                  size={21}
+                  weather={weather}
+                />
+              }
               onPress={() => {
                 tapFeedback();
-                toggleLighting();
+                setPanel((current) => (current === 'weather' ? null : 'weather'));
               }}
             />
             <RoundButton
@@ -454,10 +536,15 @@ export function EditorOverlay() {
             <RoundButton
               label="Enter fullscreen"
               icon={<Maximize2 color={palette.ink} size={20} />}
-              onPress={() => setImmersive(true)}
+              onPress={() => {
+                setPanel(null);
+                setImmersive(true);
+              }}
             />
           </View>
         </View>
+
+        {panel === 'weather' ? <WeatherPopover selected={weather} onSelect={setWeather} /> : null}
 
         <View style={styles.mainPills}>
           <PillButton
@@ -548,12 +635,72 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(246, 244, 239, 0.96)',
     ...softShadow,
   },
+  roundButtonActive: {
+    backgroundColor: palette.ink,
+  },
   buttonPressed: {
     transform: [{ scale: 0.94 }],
     opacity: 0.9,
   },
   disabled: {
     opacity: 0.38,
+  },
+  weatherPopover: {
+    width: '100%',
+    maxWidth: 340,
+    alignSelf: 'flex-end',
+    marginTop: 8,
+    paddingHorizontal: 8,
+    paddingTop: 7,
+    paddingBottom: 8,
+    borderRadius: 23,
+    backgroundColor: 'rgba(246, 244, 239, 0.97)',
+    ...softShadow,
+  },
+  weatherHeadingRow: {
+    minHeight: 16,
+    paddingHorizontal: 5,
+    marginBottom: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weatherHeading: {
+    color: palette.ink,
+    fontFamily: 'Nunito_800ExtraBold',
+    fontSize: 11,
+  },
+  weatherSelectedLabel: {
+    color: palette.inkMuted,
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 10,
+  },
+  weatherOptions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  weatherOption: {
+    flex: 1,
+    minWidth: 48,
+    minHeight: 54,
+    paddingVertical: 7,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    backgroundColor: 'rgba(255, 251, 244, 0.72)',
+  },
+  weatherOptionActive: {
+    backgroundColor: palette.ink,
+  },
+  weatherOptionLabel: {
+    color: palette.ink,
+    fontFamily: 'Nunito_800ExtraBold',
+    fontSize: 10,
+  },
+  weatherOptionLabelActive: {
+    color: palette.cream,
   },
   mainPills: {
     marginTop: 14,

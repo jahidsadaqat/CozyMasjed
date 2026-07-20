@@ -13,10 +13,9 @@ import {
   type PlacedItem,
   type QuarterTurn,
 } from '../domain/grid';
+import { defaultWeatherMode, type WeatherMode } from '../domain/weather';
 import { defaultBackgroundId, type BackgroundId } from '../theme/backgrounds';
 import { palette } from '../theme/palette';
-
-export type LightingMode = 'day' | 'warm';
 
 export type RoomSnapshot = {
   placedItems: PlacedItem[];
@@ -24,7 +23,7 @@ export type RoomSnapshot = {
   wallColor: string;
   backgroundId: BackgroundId;
   accentColor: string;
-  lighting: LightingMode;
+  weather: WeatherMode;
 };
 
 type DragPreview = {
@@ -73,7 +72,7 @@ export type RoomState = RoomSnapshot & {
   setWallColor: (color: string) => void;
   setBackgroundId: (backgroundId: BackgroundId) => void;
   setAccentColor: (color: string) => void;
-  toggleLighting: () => void;
+  setWeather: (weather: WeatherMode) => void;
   startPlacing: (catalogId: string) => void;
   cancelPlacement: () => void;
   previewPlacement: (candidate: PlacedItem) => void;
@@ -107,7 +106,7 @@ const initialRoom: RoomSnapshot = {
   wallColor: '#F4E6C8',
   backgroundId: defaultBackgroundId,
   accentColor: palette.mutedTeal,
-  lighting: 'day',
+  weather: defaultWeatherMode,
 };
 
 function clonePlacedItems(items: readonly PlacedItem[]) {
@@ -121,7 +120,7 @@ export function cloneRoomSnapshot(snapshot: RoomSnapshot): RoomSnapshot {
     wallColor: snapshot.wallColor,
     backgroundId: snapshot.backgroundId,
     accentColor: snapshot.accentColor,
-    lighting: snapshot.lighting,
+    weather: snapshot.weather,
   };
 }
 
@@ -139,7 +138,7 @@ export function roomSnapshotsEqual(a: RoomSnapshot, b: RoomSnapshot) {
     a.wallColor !== b.wallColor ||
     a.backgroundId !== b.backgroundId ||
     a.accentColor !== b.accentColor ||
-    a.lighting !== b.lighting ||
+    a.weather !== b.weather ||
     a.placedItems.length !== b.placedItems.length
   ) {
     return false;
@@ -266,10 +265,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
       commitRoom({ ...readRoomSnapshot(get()), backgroundId }, { readyBackgroundId: null });
     },
     setAccentColor: (accentColor) => commitRoom({ ...readRoomSnapshot(get()), accentColor }),
-    toggleLighting: () => {
-      const room = readRoomSnapshot(get());
-      commitRoom({ ...room, lighting: room.lighting === 'day' ? 'warm' : 'day' });
-    },
+    setWeather: (weather) => commitRoom({ ...readRoomSnapshot(get()), weather }),
     startPlacing: (placingCatalogId) => {
       const placementPreview = makeInitialPlacementPreview(placingCatalogId, get().placedItems);
       if (!placementPreview) return;
