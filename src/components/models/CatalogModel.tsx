@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber/native';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { AssetCatalogItem } from '../../catalog/types';
 import { useRoomStore } from '../../store/roomStore';
@@ -14,6 +15,43 @@ type CatalogModelProps = {
   placedItemId?: string;
   enablePointLight?: boolean;
 };
+
+function stablePhase(key: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < key.length; index += 1) {
+    hash ^= key.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return ((hash >>> 0) / 0x100000000) * Math.PI * 2;
+}
+
+function FlickeringPointLight({ phaseKey }: { phaseKey: string }) {
+  const lightRef = useRef<THREE.PointLight>(null);
+  const phase = useMemo(() => stablePhase(phaseKey), [phaseKey]);
+
+  useFrame((state) => {
+    const light = lightRef.current;
+    if (!light) return;
+    const time = state.clock.elapsedTime + phase;
+    light.intensity =
+      1.4 *
+      (1 +
+        0.12 * Math.sin(time * 7.3) +
+        0.06 * Math.sin(time * 13.7) +
+        0.04 * Math.sin(time * 3.1));
+  });
+
+  return (
+    <pointLight
+      ref={lightRef}
+      position={[0, 1.2, 0]}
+      color="#FFC56E"
+      intensity={1.4}
+      distance={2.2}
+      decay={2}
+    />
+  );
+}
 
 export function CatalogModel({
   item,
@@ -98,7 +136,7 @@ export function CatalogModel({
     <group position={position} rotation={rotation} scale={scale} userData={{ catalogId: item.id, placedItemId }}>
       <primitive object={normalizedScene} dispose={null} />
       {item.emitsLight && enablePointLight && lighting === 'warm' ? (
-        <pointLight position={[0, 1.2, 0]} color="#FFC56E" intensity={1.25} distance={2.2} decay={2} />
+        <FlickeringPointLight phaseKey={placedItemId ?? item.id} />
       ) : null}
     </group>
   );

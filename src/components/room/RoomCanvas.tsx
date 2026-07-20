@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber/native';
-import { useMemo } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_ZOOM } from '../../domain/camera';
 import { RoomScene } from './RoomScene';
@@ -18,6 +18,14 @@ import {
 } from './editorController';
 
 export function RoomCanvas() {
+  const [appState, setAppState] = useState(AppState.currentState);
+  const renderContinuously = appState === 'active' || appState === 'unknown';
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', setAppState);
+    return () => subscription.remove();
+  }, []);
+
   const gesture = useMemo(() => {
     const tap = Gesture.Tap()
       .maxDistance(8)
@@ -60,7 +68,9 @@ export function RoomCanvas() {
           // R3F Native already uses PixelRatio.get(), so Expo GL renders at
           // the device's native Retina resolution without a dpr prop.
           camera={{ position: [...DEFAULT_CAMERA_POSITION], zoom: DEFAULT_CAMERA_ZOOM, near: 0.1, far: 100 }}
-          frameloop="demand"
+          // Particle and light motion need a continuous loop. Pausing it while
+          // iOS backgrounds the app avoids spending GPU/CPU off-screen.
+          frameloop={renderContinuously ? 'always' : 'never'}
           gl={{ antialias: true, alpha: false, preserveDrawingBuffer: Platform.OS === 'web' }}
           shadows={false}
           pointerEvents="none"

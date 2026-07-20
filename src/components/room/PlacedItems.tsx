@@ -1,4 +1,6 @@
-import { Suspense } from 'react';
+import { useFrame } from '@react-three/fiber/native';
+import { Suspense, useCallback, useLayoutEffect, useRef, type ReactNode } from 'react';
+import * as THREE from 'three';
 import { catalogById } from '../../catalog/catalog';
 import { BlobShadow } from '../BlobShadow';
 import { CELL_SIZE, getPlacementSize, placementToWorld, type PlacedItem } from '../../domain/grid';
@@ -10,6 +12,69 @@ function modelRotation(item: PlacedItem): [number, number, number] {
   const base = catalogItem?.modelRotation ?? [0, 0, 0];
   const surfaceTurn = item.surface === 'wallL' ? Math.PI / 2 : 0;
   return [base[0], base[1] + surfaceTurn + (item.rotation * Math.PI) / 180, base[2]];
+}
+
+const BOING_DURATION = 0.35;
+const MAX_FRAME_DELTA = 0.05;
+
+function easeOutCubic(value: number) {
+  return 1 - (1 - value) ** 3;
+}
+
+function BoingItem({
+  animate,
+  children,
+  itemId,
+  modelReady,
+  onComplete,
+}: {
+  animate: boolean;
+  children: ReactNode;
+  itemId: string;
+  modelReady: boolean;
+  onComplete: (itemId: string) => void;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+  const elapsedRef = useRef(0);
+  const finishedRef = useRef(!animate);
+
+  useLayoutEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    if (!animate) {
+      finishedRef.current = true;
+      group.scale.setScalar(1);
+      return;
+    }
+    elapsedRef.current = 0;
+    finishedRef.current = false;
+    group.scale.setScalar(0.7);
+  }, [animate]);
+
+  useFrame((_, frameDelta) => {
+    const group = groupRef.current;
+    if (!group || !animate || !modelReady || finishedRef.current) return;
+    const elapsed = Math.min(BOING_DURATION, elapsedRef.current + Math.min(frameDelta, MAX_FRAME_DELTA));
+    elapsedRef.current = elapsed;
+    const progress = elapsed / BOING_DURATION;
+    let scale: number;
+    if (progress < 0.72) {
+      const rise = easeOutCubic(progress / 0.72);
+      scale = THREE.MathUtils.lerp(0.7, 1.05, rise);
+    } else {
+      const settle = easeOutCubic((progress - 0.72) / 0.28);
+      scale = THREE.MathUtils.lerp(1.05, 1, settle);
+    }
+    group.scale.setScalar(scale);
+
+    if (elapsed >= BOING_DURATION) {
+      group.scale.setScalar(1);
+      finishedRef.current = true;
+      onComplete(itemId);
+    }
+  });
+
+  return <group ref={groupRef}>{children}</group>;
 }
 
 function SelectionFootprint({ item, invalid }: { item: PlacedItem; invalid: boolean }) {
@@ -63,6 +128,22 @@ export function PlacedItems() {
   const dragPreview = useRoomStore((state) => state.dragPreview);
   const placementPreview = useRoomStore((state) => state.placementPreview);
   const isCaptureClean = useRoomStore((state) => state.isCaptureClean);
+  const readyModelItemIds = useRoomStore((state) => state.readyModelItemIds);
+  const knownItemIdsRef = useRef<Set<string> | null>(null);
+  const boingItemIdsRef = useRef<Set<string> | null>(null);
+  const knownItemIds = knownItemIdsRef.current ?? new Set(items.map((item) => item.id));
+  const boingItemIds = boingItemIdsRef.current ?? new Set<string>();
+  knownItemIdsRef.current = knownItemIds;
+  boingItemIdsRef.current = boingItemIds;
+  for (const item of items) {
+    if (!knownItemIds.has(item.id)) {
+      knownItemIds.add(item.id);
+      boingItemIds.add(item.id);
+    }
+  }
+  const finishBoing = useCallback((itemId: string) => {
+    boingItemIdsRef.current?.delete(itemId);
+  }, []);
   const activePointLightIds = new Set(
     items.filter((item) => catalogById[item.catalogId]?.emitsLight).slice(0, 3).map((item) => item.id),
   );
@@ -84,16 +165,23 @@ export function PlacedItems() {
             ) : null}
             <group position={position} rotation={rotation}>
               {item.surface === 'floor' ? <BlobShadow footprint={catalogItem.footprint} /> : null}
-              <Suspense fallback={null}>
-                <CatalogItemModel
-                  item={catalogItem}
-                  placedItemId={item.id}
-                  enablePointLight={activePointLightIds.has(item.id)}
-                  position={[0, 0, 0]}
-                  renderOrder={2}
-                  rotation={[0, 0, 0]}
-                />
-              </Suspense>
+              <BoingItem
+                animate={boingItemIds.has(item.id)}
+                itemId={item.id}
+                modelReady={readyModelItemIds.includes(item.id)}
+                onComplete={finishBoing}
+              >
+                <Suspense fallback={null}>
+                  <CatalogItemModel
+                    item={catalogItem}
+                    placedItemId={item.id}
+                    enablePointLight={activePointLightIds.has(item.id)}
+                    position={[0, 0, 0]}
+                    renderOrder={2}
+                    rotation={[0, 0, 0]}
+                  />
+                </Suspense>
+              </BoingItem>
             </group>
           </group>
         );

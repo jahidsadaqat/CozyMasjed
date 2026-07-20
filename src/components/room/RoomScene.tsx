@@ -1,4 +1,6 @@
 import { Suspense } from 'react';
+import { DustMotes } from '../DustMotes';
+import { LightSnow } from '../LightSnow';
 import { useRoomStore } from '../../store/roomStore';
 import { ModelValidationScene } from '../models/ModelValidationScene';
 import { PlacedItems } from './PlacedItems';
@@ -31,6 +33,8 @@ export function RoomScene() {
         color={isWarm ? '#FFE1BC' : '#FFF3DC'}
       />
       <RoomShell floorColor={floorColor} wallColor={wallColor} accentColor={accentColor} />
+      <DustMotes />
+      <LightSnow />
       <PlacedItems />
       {SHOW_MODEL_VALIDATION_SCENE ? (
         <Suspense fallback={null}>
