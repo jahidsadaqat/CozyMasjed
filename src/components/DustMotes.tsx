@@ -3,9 +3,11 @@ import { useRef } from 'react';
 import * as THREE from 'three';
 import { useRoomStore } from '../store/roomStore';
 import {
+  WINDOW_LIGHT_LANDING_WIDTH,
   WINDOW_LIGHT_LENGTH,
   WINDOW_LIGHT_MIDPOINT,
   WINDOW_LIGHT_QUATERNION,
+  WINDOW_LIGHT_SOURCE_WIDTH,
 } from './windowLight';
 
 const DUST_COUNT = 40;
@@ -14,7 +16,7 @@ const MAX_FRAME_DELTA = 0.05;
 
 type DustData = {
   positions: Float32Array;
-  baseX: Float32Array;
+  normalizedX: Float32Array;
   baseZ: Float32Array;
   driftSpeed: Float32Array;
   phase: Float32Array;
@@ -32,25 +34,29 @@ function makeRandom(seed: number) {
 function createDustData(): DustData {
   const random = makeRandom(0xdee4d057);
   const positions = new Float32Array(DUST_COUNT * 3);
-  const baseX = new Float32Array(DUST_COUNT);
+  const normalizedX = new Float32Array(DUST_COUNT);
   const baseZ = new Float32Array(DUST_COUNT);
   const driftSpeed = new Float32Array(DUST_COUNT);
   const phase = new Float32Array(DUST_COUNT);
   const swaySpeed = new Float32Array(DUST_COUNT);
 
   for (let index = 0; index < DUST_COUNT; index += 1) {
-    baseX[index] = (random() - 0.5) * 0.62;
+    normalizedX[index] = random() * 2 - 1;
     baseZ[index] = (random() - 0.5) * 0.1;
     driftSpeed[index] = 0.02 + random() * 0.03;
     phase[index] = random() * Math.PI * 2;
     swaySpeed[index] = 0.45 + random() * 0.55;
     const offset = index * 3;
-    positions[offset] = baseX[index];
-    positions[offset + 1] = -HALF_BEAM_LENGTH + random() * WINDOW_LIGHT_LENGTH;
+    const y = -HALF_BEAM_LENGTH + random() * WINDOW_LIGHT_LENGTH;
+    const progress = (y + HALF_BEAM_LENGTH) / WINDOW_LIGHT_LENGTH;
+    const beamWidth = WINDOW_LIGHT_SOURCE_WIDTH
+      + (WINDOW_LIGHT_LANDING_WIDTH - WINDOW_LIGHT_SOURCE_WIDTH) * progress;
+    positions[offset] = normalizedX[index] * beamWidth * 0.5;
+    positions[offset + 1] = y;
     positions[offset + 2] = baseZ[index];
   }
 
-  return { positions, baseX, baseZ, driftSpeed, phase, swaySpeed };
+  return { positions, normalizedX, baseZ, driftSpeed, phase, swaySpeed };
 }
 
 export function DustMotes() {
@@ -70,7 +76,10 @@ export function DustMotes() {
       let y = data.positions[offset + 1] + data.driftSpeed[index] * delta;
       if (y > HALF_BEAM_LENGTH) y = -HALF_BEAM_LENGTH;
       const sway = time * data.swaySpeed[index] + data.phase[index];
-      data.positions[offset] = data.baseX[index] + Math.sin(sway) * 0.028;
+      const progress = (y + HALF_BEAM_LENGTH) / WINDOW_LIGHT_LENGTH;
+      const beamWidth = WINDOW_LIGHT_SOURCE_WIDTH
+        + (WINDOW_LIGHT_LANDING_WIDTH - WINDOW_LIGHT_SOURCE_WIDTH) * progress;
+      data.positions[offset] = data.normalizedX[index] * beamWidth * 0.5 + Math.sin(sway) * 0.02;
       data.positions[offset + 1] = y;
       data.positions[offset + 2] = data.baseZ[index] + Math.cos(sway * 0.83) * 0.012;
     }

@@ -2,6 +2,8 @@ import * as THREE from 'three';
 
 export const WINDOW_LIGHT_START: [number, number, number] = [-1.995, 1.1, 0.65];
 export const WINDOW_LIGHT_END: [number, number, number] = [-0.675, 0.043, 0.65];
+export const WINDOW_LIGHT_SOURCE_WIDTH = 0.36;
+export const WINDOW_LIGHT_LANDING_WIDTH = 0.9;
 export const WINDOW_LIGHT_MIDPOINT: [number, number, number] = [
   (WINDOW_LIGHT_START[0] + WINDOW_LIGHT_END[0]) / 2,
   (WINDOW_LIGHT_START[1] + WINDOW_LIGHT_END[1]) / 2,
