@@ -13,6 +13,7 @@ import {
   type PlacedItem,
   type QuarterTurn,
 } from '../domain/grid';
+import { defaultBackgroundId, type BackgroundId } from '../theme/backgrounds';
 import { palette } from '../theme/palette';
 
 export type LightingMode = 'day' | 'warm';
@@ -21,7 +22,7 @@ export type RoomSnapshot = {
   placedItems: PlacedItem[];
   floorColor: string;
   wallColor: string;
-  backgroundColor: string;
+  backgroundId: BackgroundId;
   accentColor: string;
   lighting: LightingMode;
 };
@@ -49,6 +50,7 @@ type TransientPatch = Partial<
     | 'cameraTarget'
     | 'isCaptureClean'
     | 'readyModelItemIds'
+    | 'readyBackgroundId'
   >
 >;
 
@@ -66,9 +68,10 @@ export type RoomState = RoomSnapshot & {
   cameraTarget: [number, number, number];
   isCaptureClean: boolean;
   readyModelItemIds: string[];
+  readyBackgroundId: BackgroundId | null;
   setFloorColor: (color: string) => void;
   setWallColor: (color: string) => void;
-  setBackgroundColor: (color: string) => void;
+  setBackgroundId: (backgroundId: BackgroundId) => void;
   setAccentColor: (color: string) => void;
   toggleLighting: () => void;
   startPlacing: (catalogId: string) => void;
@@ -93,6 +96,7 @@ export type RoomState = RoomSnapshot & {
   setCameraView: (zoom: number, yaw: number, target: [number, number, number]) => void;
   setCaptureClean: (clean: boolean) => void;
   markModelReady: (placedItemId: string) => void;
+  markBackgroundReady: (backgroundId: BackgroundId) => void;
 };
 
 const HISTORY_LIMIT = 50;
@@ -101,7 +105,7 @@ const initialRoom: RoomSnapshot = {
   placedItems: [],
   floorColor: palette.woodLight,
   wallColor: '#F4E6C8',
-  backgroundColor: palette.skyTop,
+  backgroundId: defaultBackgroundId,
   accentColor: palette.mutedTeal,
   lighting: 'day',
 };
@@ -115,7 +119,7 @@ export function cloneRoomSnapshot(snapshot: RoomSnapshot): RoomSnapshot {
     placedItems: clonePlacedItems(snapshot.placedItems),
     floorColor: snapshot.floorColor,
     wallColor: snapshot.wallColor,
-    backgroundColor: snapshot.backgroundColor,
+    backgroundId: snapshot.backgroundId,
     accentColor: snapshot.accentColor,
     lighting: snapshot.lighting,
   };
@@ -133,7 +137,7 @@ export function roomSnapshotsEqual(a: RoomSnapshot, b: RoomSnapshot) {
   if (
     a.floorColor !== b.floorColor ||
     a.wallColor !== b.wallColor ||
-    a.backgroundColor !== b.backgroundColor ||
+    a.backgroundId !== b.backgroundId ||
     a.accentColor !== b.accentColor ||
     a.lighting !== b.lighting ||
     a.placedItems.length !== b.placedItems.length
@@ -254,9 +258,13 @@ export const useRoomStore = create<RoomState>((set, get) => {
     cameraTarget: [...CAMERA_TARGET],
     isCaptureClean: false,
     readyModelItemIds: [],
+    readyBackgroundId: null,
     setFloorColor: (floorColor) => commitRoom({ ...readRoomSnapshot(get()), floorColor }),
     setWallColor: (wallColor) => commitRoom({ ...readRoomSnapshot(get()), wallColor }),
-    setBackgroundColor: (backgroundColor) => commitRoom({ ...readRoomSnapshot(get()), backgroundColor }),
+    setBackgroundId: (backgroundId) => {
+      if (get().backgroundId === backgroundId) return;
+      commitRoom({ ...readRoomSnapshot(get()), backgroundId }, { readyBackgroundId: null });
+    },
     setAccentColor: (accentColor) => commitRoom({ ...readRoomSnapshot(get()), accentColor }),
     toggleLighting: () => {
       const room = readRoomSnapshot(get());
@@ -418,6 +426,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
         past: state.past.slice(0, -1),
         future: [current, ...state.future].slice(0, HISTORY_LIMIT),
         readyModelItemIds: state.readyModelItemIds.filter((id) => targetIds.has(id)),
+        readyBackgroundId: target.backgroundId === current.backgroundId ? state.readyBackgroundId : null,
       });
       return true;
     },
@@ -433,6 +442,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
         past: [...state.past, current].slice(-HISTORY_LIMIT),
         future: state.future.slice(1),
         readyModelItemIds: state.readyModelItemIds.filter((id) => targetIds.has(id)),
+        readyBackgroundId: target.backgroundId === current.backgroundId ? state.readyBackgroundId : null,
       });
       return true;
     },
@@ -444,6 +454,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
         future: [],
         isHydrated: true,
         readyModelItemIds: [],
+        readyBackgroundId: null,
       }),
     finishHydration: () => set({ isHydrated: true }),
     setCameraView: (cameraZoom, cameraYaw, cameraTarget) =>
@@ -459,5 +470,11 @@ export const useRoomStore = create<RoomState>((set, get) => {
         }
         return { readyModelItemIds: [...state.readyModelItemIds, placedItemId] };
       }),
+    markBackgroundReady: (backgroundId) =>
+      set((state) =>
+        state.backgroundId === backgroundId && state.readyBackgroundId !== backgroundId
+          ? { readyBackgroundId: backgroundId }
+          : state,
+      ),
   };
 });

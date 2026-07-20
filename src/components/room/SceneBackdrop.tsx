@@ -1,94 +1,137 @@
-import { useEffect, useMemo } from 'react';
+import { useThree } from '@react-three/fiber/native';
+import { Asset } from 'expo-asset';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
-import type { LightingMode } from '../../store/roomStore';
+import { useRoomStore } from '../../store/roomStore';
+import { getBackgroundOption, type BackgroundId } from '../../theme/backgrounds';
 
-type Rgb = [number, number, number];
+const BACKGROUND_ASPECT = 941 / 1672;
 
-const WIDTH = 128;
-const HEIGHT = 256;
-
-function hexToRgb(hex: string): Rgb {
-  return [
-    Number.parseInt(hex.slice(1, 3), 16),
-    Number.parseInt(hex.slice(3, 5), 16),
-    Number.parseInt(hex.slice(5, 7), 16),
-  ];
-}
-
-function mix(a: Rgb, b: Rgb, amount: number): Rgb {
-  const t = THREE.MathUtils.clamp(amount, 0, 1);
-  return [
-    Math.round(THREE.MathUtils.lerp(a[0], b[0], t)),
-    Math.round(THREE.MathUtils.lerp(a[1], b[1], t)),
-    Math.round(THREE.MathUtils.lerp(a[2], b[2], t)),
-  ];
-}
-
-function addTint(base: Rgb, tint: Rgb, amount: number) {
-  return mix(base, tint, THREE.MathUtils.clamp(amount, 0, 0.92));
-}
-
-function softEllipse(x: number, y: number, cx: number, cy: number, rx: number, ry: number) {
-  const distance = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
-  return Math.exp(-distance * 2.3);
-}
-
-function buildBackdropTexture(lighting: LightingMode, baseColor: string) {
-  const isWarm = lighting === 'warm';
-  const base = hexToRgb(baseColor);
-  const top = isWarm
-    ? mix(base, hexToRgb('#637A78'), 0.32)
-    : mix(base, hexToRgb('#FFFFFF'), 0.04);
-  const middle = mix(base, hexToRgb(isWarm ? '#E7AD79' : '#FFF1D8'), isWarm ? 0.55 : 0.48);
-  const bottom = mix(base, hexToRgb(isWarm ? '#B95E49' : '#E99A68'), isWarm ? 0.62 : 0.48);
-  const cloud = hexToRgb(isWarm ? '#FFE2B7' : '#FFFBEA');
-  const sun = hexToRgb(isWarm ? '#FFC46D' : '#FFF0B0');
-  const pixels = new Uint8Array(WIDTH * HEIGHT * 4);
-
-  for (let py = 0; py < HEIGHT; py += 1) {
-    const y = py / (HEIGHT - 1);
-    for (let px = 0; px < WIDTH; px += 1) {
-      const x = px / (WIDTH - 1);
-      let color = y < 0.54 ? mix(top, middle, y / 0.54) : mix(middle, bottom, (y - 0.54) / 0.46);
-
-      const sunGlow = softEllipse(x, y, 0.5, 0.39, 0.34, 0.18) * (isWarm ? 0.23 : 0.2);
-      const horizonGlow = Math.exp(-(((y - 0.76) / 0.14) ** 2)) * 0.13;
-      color = addTint(color, sun, sunGlow + horizonGlow);
-
-      const upperCloud =
-        softEllipse(x, y, -0.04, 0.18, 0.35, 0.055) +
-        softEllipse(x, y, 0.16, 0.16, 0.25, 0.07) +
-        softEllipse(x, y, 1.03, 0.28, 0.42, 0.068) +
-        softEllipse(x, y, 0.81, 0.25, 0.24, 0.05);
-      const lowerCloud =
-        softEllipse(x, y, -0.1, 0.7, 0.33, 0.055) +
-        softEllipse(x, y, 1.04, 0.64, 0.38, 0.06);
-      color = addTint(color, cloud, Math.min(0.42, upperCloud * 0.21 + lowerCloud * 0.1));
-
-      const offset = (py * WIDTH + px) * 4;
-      pixels[offset] = color[0];
-      pixels[offset + 1] = color[1];
-      pixels[offset + 2] = color[2];
-      pixels[offset + 3] = 255;
-    }
+function applyCoverCrop(texture: THREE.Texture, viewportAspect: number) {
+  if (viewportAspect < BACKGROUND_ASPECT) {
+    const visibleWidth = viewportAspect / BACKGROUND_ASPECT;
+    texture.repeat.set(visibleWidth, 1);
+    texture.offset.set((1 - visibleWidth) / 2, 0);
+  } else {
+    const visibleHeight = BACKGROUND_ASPECT / viewportAspect;
+    texture.repeat.set(1, visibleHeight);
+    texture.offset.set(0, (1 - visibleHeight) / 2);
   }
-
-  const texture = new THREE.DataTexture(pixels, WIDTH, HEIGHT, THREE.RGBAFormat, THREE.UnsignedByteType);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = false;
-  texture.flipY = true;
-  texture.needsUpdate = true;
-  return texture;
+  texture.updateMatrix();
 }
 
-export function SceneBackdrop({ lighting, baseColor }: { lighting: LightingMode; baseColor: string }) {
-  const texture = useMemo(() => buildBackdropTexture(lighting, baseColor), [baseColor, lighting]);
+function IllustratedBackdrop({
+  backgroundId,
+  source,
+  fallbackColor,
+}: {
+  backgroundId: BackgroundId;
+  source: number;
+  fallbackColor: string;
+}) {
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [failed, setFailed] = useState(false);
+  const fallback = useMemo(() => new THREE.Color(fallbackColor), [fallbackColor]);
+  const size = useThree((state) => state.size);
+  const scene = useThree((state) => state.scene);
+  const invalidate = useThree((state) => state.invalidate);
+  const markBackgroundReady = useRoomStore((state) => state.markBackgroundReady);
 
   useEffect(() => {
-    return () => texture.dispose();
+    let cancelled = false;
+    let ownedTexture: THREE.Texture | null = null;
+    let disposed = false;
+
+    const disposeOwnedTexture = () => {
+      if (!ownedTexture || disposed) return;
+      if (scene.background === ownedTexture) scene.background = null;
+      ownedTexture.dispose();
+      disposed = true;
+    };
+
+    const fail = (error: unknown) => {
+      if (cancelled) return;
+      disposeOwnedTexture();
+      console.warn('[Deen Rooms] Could not load the selected background.', error);
+      setFailed(true);
+    };
+
+    const load = async () => {
+      try {
+        const asset = await Asset.fromModule(source).downloadAsync();
+        if (cancelled) return;
+        const uri = asset.localUri ?? asset.uri;
+        if (!uri) throw new Error('The background asset has no readable URI.');
+
+        ownedTexture = new THREE.TextureLoader().load(
+          uri,
+          (loadedTexture) => {
+            if (cancelled) {
+              disposeOwnedTexture();
+              return;
+            }
+            setTexture(loadedTexture);
+          },
+          undefined,
+          fail,
+        );
+      } catch (error) {
+        fail(error);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+      disposeOwnedTexture();
+    };
+  }, [scene, source]);
+
+  useLayoutEffect(() => {
+    if (!texture) return;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.generateMipmaps = false;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.needsUpdate = true;
   }, [texture]);
 
-  return <primitive attach="background" object={texture} />;
+  useLayoutEffect(() => {
+    const background = texture ?? fallback;
+    if (texture) applyCoverCrop(texture, size.width / Math.max(1, size.height));
+
+    scene.background = background;
+    invalidate();
+
+    let firstTimer: ReturnType<typeof setTimeout> | null = null;
+    let secondTimer: ReturnType<typeof setTimeout> | null = null;
+    if (texture || failed) {
+      firstTimer = setTimeout(() => {
+        invalidate();
+        secondTimer = setTimeout(() => markBackgroundReady(backgroundId), 34);
+      }, 34);
+    }
+
+    return () => {
+      if (firstTimer) clearTimeout(firstTimer);
+      if (secondTimer) clearTimeout(secondTimer);
+      if (scene.background === background) scene.background = null;
+    };
+  }, [backgroundId, failed, fallback, invalidate, markBackgroundReady, scene, size.height, size.width, texture]);
+
+  return null;
+}
+
+export function SceneBackdrop({ backgroundId }: { backgroundId: BackgroundId }) {
+  const option = getBackgroundOption(backgroundId);
+  return (
+    <IllustratedBackdrop
+      key={backgroundId}
+      backgroundId={backgroundId}
+      fallbackColor={option.fallbackColor}
+      source={option.source}
+    />
+  );
 }

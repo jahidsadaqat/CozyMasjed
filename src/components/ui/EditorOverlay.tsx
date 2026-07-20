@@ -31,7 +31,8 @@ import { catalogThumbnails } from '../../catalog/thumbnails';
 import type { CatalogCategory, CatalogItem } from '../../catalog/types';
 import { captureSaveAndShareRoom } from '../../services/roomSnapshot';
 import { useRoomStore } from '../../store/roomStore';
-import { backgroundSwatches, floorSwatches, palette, wallSwatches } from '../../theme/palette';
+import { backgroundOptions, type BackgroundId } from '../../theme/backgrounds';
+import { floorSwatches, palette, wallSwatches } from '../../theme/palette';
 
 type OpenPanel = 'catalog' | 'style' | null;
 type FilterCategory = CatalogCategory | 'All';
@@ -219,13 +220,64 @@ function SwatchRow({
   );
 }
 
+function BackgroundPicker({
+  selected,
+  onSelect,
+}: {
+  selected: BackgroundId;
+  onSelect: (backgroundId: BackgroundId) => void;
+}) {
+  return (
+    <View style={styles.swatchSection}>
+      <Text style={styles.swatchLabel}>Background</Text>
+      <ScrollView
+        horizontal
+        accessibilityLabel="Room background"
+        accessibilityRole="radiogroup"
+        contentContainerStyle={styles.backgroundRow}
+        showsHorizontalScrollIndicator={false}
+        style={styles.backgroundScroller}
+      >
+        {backgroundOptions.map((option) => {
+          const active = option.id === selected;
+          return (
+            <Pressable
+              key={option.id}
+              accessibilityLabel={`${option.name} background`}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active }}
+              aria-checked={active}
+              onPress={() => {
+                tapFeedback();
+                onSelect(option.id);
+              }}
+              style={({ pressed }) => [
+                styles.backgroundOption,
+                active && styles.backgroundOptionActive,
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              <Image
+                accessible={false}
+                resizeMode="cover"
+                source={option.thumbnailSource}
+                style={styles.backgroundImage}
+              />
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
 function StylePanel({ onClose }: { onClose: () => void }) {
   const floorColor = useRoomStore((state) => state.floorColor);
   const wallColor = useRoomStore((state) => state.wallColor);
-  const backgroundColor = useRoomStore((state) => state.backgroundColor);
+  const backgroundId = useRoomStore((state) => state.backgroundId);
   const setFloorColor = useRoomStore((state) => state.setFloorColor);
   const setWallColor = useRoomStore((state) => state.setWallColor);
-  const setBackgroundColor = useRoomStore((state) => state.setBackgroundColor);
+  const setBackgroundId = useRoomStore((state) => state.setBackgroundId);
 
   return (
     <Animated.View entering={FadeInDown.duration(220)} exiting={FadeOutDown.duration(160)} style={[styles.sheet, styles.styleSheet]}>
@@ -239,12 +291,7 @@ function StylePanel({ onClose }: { onClose: () => void }) {
       </View>
       <SwatchRow label="Floor" colors={floorSwatches} selected={floorColor} onSelect={setFloorColor} />
       <SwatchRow label="Walls" colors={wallSwatches} selected={wallColor} onSelect={setWallColor} />
-      <SwatchRow
-        label="Background"
-        colors={backgroundSwatches}
-        selected={backgroundColor}
-        onSelect={setBackgroundColor}
-      />
+      <BackgroundPicker selected={backgroundId} onSelect={setBackgroundId} />
     </Animated.View>
   );
 }
@@ -290,6 +337,8 @@ export function EditorOverlay() {
   const hasPlacementPreview = useRoomStore((state) => Boolean(state.placementPreview));
   const placedItems = useRoomStore((state) => state.placedItems);
   const readyModelItemIds = useRoomStore((state) => state.readyModelItemIds);
+  const backgroundId = useRoomStore((state) => state.backgroundId);
+  const readyBackgroundId = useRoomStore((state) => state.readyBackgroundId);
   const lighting = useRoomStore((state) => state.lighting);
   const canUndo = useRoomStore((state) => state.past.length > 0);
   const canRedo = useRoomStore((state) => state.future.length > 0);
@@ -301,6 +350,7 @@ export function EditorOverlay() {
   const cancelDrag = useRoomStore((state) => state.cancelDrag);
   const setCaptureClean = useRoomStore((state) => state.setCaptureClean);
   const modelsReady = placedItems.every((item) => readyModelItemIds.includes(item.id));
+  const backgroundReady = readyBackgroundId === backgroundId;
 
   const closePanel = () => setPanel(null);
   const handleBack = () => {
@@ -310,7 +360,7 @@ export function EditorOverlay() {
   };
 
   const handleSnap = async () => {
-    if (isCapturing || !modelsReady || hasPlacementPreview) return;
+    if (isCapturing || !modelsReady || !backgroundReady || hasPlacementPreview) return;
     setPanel(null);
     cancelDrag();
     setCaptureClean(true);
@@ -424,7 +474,7 @@ export function EditorOverlay() {
           />
           <PillButton
             label="Snap"
-            disabled={!modelsReady || hasPlacementPreview}
+            disabled={!modelsReady || !backgroundReady || hasPlacementPreview}
             icon={<Camera color={palette.ink} size={20} />}
             onPress={() => void handleSnap()}
           />
@@ -432,9 +482,11 @@ export function EditorOverlay() {
 
         {panel === 'catalog' ? <CatalogTray onClose={closePanel} /> : null}
 
-        {!modelsReady ? (
+        {!modelsReady || !backgroundReady ? (
           <View style={styles.modelLoadingHint}>
-            <Text style={styles.modelLoadingText}>Preparing your 3D items…</Text>
+            <Text style={styles.modelLoadingText}>
+              {!backgroundReady ? 'Painting your background…' : 'Preparing your 3D items…'}
+            </Text>
           </View>
         ) : null}
 
@@ -711,6 +763,34 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(78,59,49,0.12)',
+  },
+  backgroundScroller: {
+    flexGrow: 0,
+  },
+  backgroundRow: {
+    gap: 7,
+    paddingVertical: 2,
+    paddingRight: 2,
+  },
+  backgroundOption: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    backgroundColor: palette.paper,
+  },
+  backgroundOptionActive: {
+    borderColor: palette.ink,
+  },
+  backgroundImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(78,59,49,0.1)',
   },
   notice: {
     position: 'absolute',
