@@ -13,6 +13,7 @@ type CatalogItemModelProps = {
   onReady?: (catalogId: string) => void;
   placedItemId?: string;
   enablePointLight?: boolean;
+  renderOrder?: number;
 };
 
 function isProceduralItem(item: CatalogItem): item is ProceduralCatalogItem {
@@ -27,12 +28,17 @@ export function CatalogItemModel({
   onReady,
   placedItemId,
   enablePointLight = true,
+  renderOrder = 0,
 }: CatalogItemModelProps) {
   const materialPolicyRef = useRef<THREE.Group>(null);
 
   useLayoutEffect(() => {
-    if (materialPolicyRef.current) applyCatalogMaterialPolicyToObject(materialPolicyRef.current, item.id);
-  }, [item.id]);
+    if (!materialPolicyRef.current) return;
+    applyCatalogMaterialPolicyToObject(materialPolicyRef.current, item.id);
+    materialPolicyRef.current.traverse((object) => {
+      if (object instanceof THREE.Mesh) object.renderOrder = renderOrder;
+    });
+  }, [item.id, renderOrder]);
 
   return (
     <group ref={materialPolicyRef}>

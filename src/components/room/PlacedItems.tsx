@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { catalogById } from '../../catalog/catalog';
+import { BlobShadow } from '../BlobShadow';
 import { CELL_SIZE, getPlacementSize, placementToWorld, type PlacedItem } from '../../domain/grid';
 import { useRoomStore } from '../../store/roomStore';
 import { CatalogItemModel } from '../models/CatalogItemModel';
@@ -22,7 +23,7 @@ function SelectionFootprint({ item, invalid }: { item: PlacedItem; invalid: bool
 
   if (item.surface === 'floor') {
     return (
-      <mesh position={[x, y + 0.012, z]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[x, y + 0.012, z]} renderOrder={3} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[radius, 48]} />
         <meshBasicMaterial
           color={color}
@@ -41,7 +42,7 @@ function SelectionFootprint({ item, invalid }: { item: PlacedItem; invalid: bool
   const position: [number, number, number] = item.surface === 'wallL' ? [x + 0.018, centerY, z] : [x, centerY, z + 0.018];
   const rotation: [number, number, number] = item.surface === 'wallL' ? [0, Math.PI / 2, 0] : [0, 0, 0];
   return (
-    <mesh position={position} rotation={rotation}>
+    <mesh position={position} renderOrder={3} rotation={rotation}>
       <circleGeometry args={[radius, 48]} />
       <meshBasicMaterial
         color={color}
@@ -74,21 +75,26 @@ export function PlacedItems() {
         const catalogItem = catalogById[item.catalogId];
         if (!catalogItem) return null;
         const position = placementToWorld(item, catalogItem);
+        const rotation = modelRotation(item);
         const selected = selectedItemId === item.id;
         return (
           <group key={item.id}>
             {selected && !isCaptureClean ? (
               <SelectionFootprint item={item} invalid={isDragging && !dragPreview.valid} />
             ) : null}
-            <Suspense fallback={null}>
-              <CatalogItemModel
-                item={catalogItem}
-                placedItemId={item.id}
-                enablePointLight={activePointLightIds.has(item.id)}
-                position={position}
-                rotation={modelRotation(item)}
-              />
-            </Suspense>
+            <group position={position} rotation={rotation}>
+              {item.surface === 'floor' ? <BlobShadow footprint={catalogItem.footprint} /> : null}
+              <Suspense fallback={null}>
+                <CatalogItemModel
+                  item={catalogItem}
+                  placedItemId={item.id}
+                  enablePointLight={activePointLightIds.has(item.id)}
+                  position={[0, 0, 0]}
+                  renderOrder={2}
+                  rotation={[0, 0, 0]}
+                />
+              </Suspense>
+            </group>
           </group>
         );
       })}
@@ -104,6 +110,7 @@ export function PlacedItems() {
                 item={catalogItem}
                 enablePointLight={false}
                 position={placementToWorld(item, catalogItem)}
+                renderOrder={2}
                 rotation={modelRotation(item)}
               />
             </Suspense>
