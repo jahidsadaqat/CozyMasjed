@@ -42,8 +42,27 @@ import { floorSwatches, palette, wallSwatches } from '../../theme/palette';
 
 type OpenPanel = 'catalog' | 'style' | 'weather' | null;
 type FilterCategory = CatalogCategory | 'All';
+type StyleSection = 'background' | 'floor' | 'walls';
 
 const categories: readonly FilterCategory[] = ['All', 'Prayer', 'Lights', 'Seating', 'Decor', 'Wall'];
+const styleSections: readonly { id: StyleSection; label: string }[] = [
+  { id: 'background', label: 'Background' },
+  { id: 'floor', label: 'Floor' },
+  { id: 'walls', label: 'Walls' },
+];
+const styleColorNames: Readonly<Record<string, string>> = {
+  '#A96E49': 'Terracotta wood',
+  '#C99362': 'Honey oak',
+  '#8E6047': 'Warm walnut',
+  '#6F5141': 'Dark walnut',
+  '#D9C3A0': 'Sand oak',
+  '#F4E6C8': 'Cream',
+  '#D8E5D0': 'Soft sage',
+  '#C7DDD8': 'Teal mist',
+  '#E8CBC8': 'Soft blush',
+  '#CED9E9': 'Powder blue',
+  '#E9DCCB': 'Warm linen',
+};
 
 function WeatherGlyph({ weather, color, size = 20 }: { weather: WeatherMode; color: string; size?: number }) {
   if (weather === 'cloudy') return <Cloud color={color} size={size} />;
@@ -118,7 +137,7 @@ function WeatherPopover({
               accessibilityHint="Changes the room atmosphere"
               accessibilityLabel={`${label} weather`}
               accessibilityRole="radio"
-              accessibilityState={{ checked: active, selected: active }}
+              accessibilityState={{ checked: active }}
               aria-checked={active}
               hitSlop={4}
               onPress={() => {
@@ -170,18 +189,27 @@ function PillButton({
   icon,
   active = false,
   disabled = false,
+  accessibilityHint,
+  accessibilityLabel,
+  expanded,
   onPress,
 }: {
   label: string;
   icon: ReactNode;
   active?: boolean;
   disabled?: boolean;
+  accessibilityHint?: string;
+  accessibilityLabel?: string;
+  expanded?: boolean;
   onPress: () => void;
 }) {
   return (
     <Pressable
-      accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
+      accessibilityState={{ disabled, expanded }}
+      aria-expanded={expanded}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -280,7 +308,7 @@ function CatalogTray({ onClose }: { onClose: () => void }) {
   );
 }
 
-function SwatchRow({
+function ColorPicker({
   label,
   colors,
   selected,
@@ -292,28 +320,33 @@ function SwatchRow({
   onSelect: (color: string) => void;
 }) {
   return (
-    <View style={styles.swatchSection}>
-      <Text style={styles.swatchLabel}>{label}</Text>
-      <View style={styles.swatchRow}>
-        {colors.map((color) => {
-          const active = color.toLowerCase() === selected.toLowerCase();
-          return (
-            <Pressable
-              key={color}
-              accessibilityLabel={`${label} color ${color}`}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              onPress={() => {
-                tapFeedback();
-                onSelect(color);
-              }}
-              style={[styles.swatchOuter, active && styles.swatchOuterActive]}
-            >
-              <View style={[styles.swatch, { backgroundColor: color }]} />
-            </Pressable>
-          );
-        })}
-      </View>
+    <View accessibilityLabel={`${label} colors`} accessibilityRole="radiogroup" style={styles.styleColorRow}>
+      {colors.map((color) => {
+        const active = color.toLowerCase() === selected.toLowerCase();
+        const colorName = styleColorNames[color.toUpperCase()] ?? color;
+        return (
+          <Pressable
+            key={color}
+            accessibilityHint={`Changes the room ${label.toLowerCase()} color`}
+            accessibilityLabel={`${colorName} ${label.toLowerCase()}`}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: active }}
+            aria-checked={active}
+            hitSlop={4}
+            onPress={() => {
+              tapFeedback();
+              onSelect(color);
+            }}
+            style={({ pressed }) => [
+              styles.styleSwatchOuter,
+              active && styles.styleSwatchOuterActive,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <View style={[styles.styleSwatch, { backgroundColor: color }]} />
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -326,50 +359,50 @@ function BackgroundPicker({
   onSelect: (backgroundId: BackgroundId) => void;
 }) {
   return (
-    <View style={styles.swatchSection}>
-      <Text style={styles.swatchLabel}>Background</Text>
-      <ScrollView
-        horizontal
-        accessibilityLabel="Room background"
-        accessibilityRole="radiogroup"
-        contentContainerStyle={styles.backgroundRow}
-        showsHorizontalScrollIndicator={false}
-        style={styles.backgroundScroller}
-      >
-        {backgroundOptions.map((option) => {
-          const active = option.id === selected;
-          return (
-            <Pressable
-              key={option.id}
-              accessibilityLabel={`${option.name} background`}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: active }}
-              aria-checked={active}
-              onPress={() => {
-                tapFeedback();
-                onSelect(option.id);
-              }}
-              style={({ pressed }) => [
-                styles.backgroundOption,
-                active && styles.backgroundOptionActive,
-                pressed && styles.buttonPressed,
-              ]}
-            >
-              <Image
-                accessible={false}
-                resizeMode="cover"
-                source={option.thumbnailSource}
-                style={styles.backgroundImage}
-              />
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
+    <ScrollView
+      horizontal
+      accessibilityLabel="Room background"
+      accessibilityRole="radiogroup"
+      contentContainerStyle={styles.styleBackgroundRow}
+      showsHorizontalScrollIndicator={false}
+      style={styles.styleBackgroundScroller}
+    >
+      {backgroundOptions.map((option) => {
+        const active = option.id === selected;
+        return (
+          <Pressable
+            key={option.id}
+            accessibilityHint="Changes the illustrated background"
+            accessibilityLabel={`${option.name} background`}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: active }}
+            aria-checked={active}
+            hitSlop={3}
+            onPress={() => {
+              tapFeedback();
+              onSelect(option.id);
+            }}
+            style={({ pressed }) => [
+              styles.styleBackgroundOption,
+              active && styles.styleBackgroundOptionActive,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Image
+              accessible={false}
+              resizeMode="cover"
+              source={option.thumbnailSource}
+              style={styles.styleBackgroundImage}
+            />
+          </Pressable>
+        );
+      })}
+    </ScrollView>
   );
 }
 
-function StylePanel({ onClose }: { onClose: () => void }) {
+function StylePanel() {
+  const [section, setSection] = useState<StyleSection>('background');
   const floorColor = useRoomStore((state) => state.floorColor);
   const wallColor = useRoomStore((state) => state.wallColor);
   const backgroundId = useRoomStore((state) => state.backgroundId);
@@ -378,18 +411,43 @@ function StylePanel({ onClose }: { onClose: () => void }) {
   const setBackgroundId = useRoomStore((state) => state.setBackgroundId);
 
   return (
-    <Animated.View entering={FadeInDown.duration(220)} exiting={FadeOutDown.duration(160)} style={[styles.sheet, styles.styleSheet]}>
-      <View style={styles.sheetHandle} />
-      <View style={styles.sheetHeadingRow}>
-        <View>
-          <Text style={styles.sheetTitle}>Set the mood</Text>
-          <Text style={styles.sheetSubtitle}>Warm finishes for a peaceful room</Text>
-        </View>
-        <RoundButton label="Close style panel" icon={<X color={palette.ink} size={20} />} onPress={onClose} />
+    <Animated.View entering={FadeInDown.duration(190)} exiting={FadeOutDown.duration(140)} style={styles.styleTray}>
+      <View accessibilityLabel="Style section" accessibilityRole="radiogroup" style={styles.styleSectionRow}>
+        {styleSections.map((option) => {
+          const active = option.id === section;
+          return (
+            <Pressable
+              key={option.id}
+              accessibilityHint={`Shows ${option.label.toLowerCase()} choices`}
+              accessibilityLabel={`${option.label} styles`}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active }}
+              aria-checked={active}
+              onPress={() => {
+                tapFeedback();
+                setSection(option.id);
+              }}
+              style={({ pressed }) => [
+                styles.styleSectionChip,
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              <View style={[styles.styleSectionChipVisual, active && styles.styleSectionChipActive]}>
+                <Text style={[styles.styleSectionText, active && styles.styleSectionTextActive]}>{option.label}</Text>
+              </View>
+            </Pressable>
+          );
+        })}
       </View>
-      <SwatchRow label="Floor" colors={floorSwatches} selected={floorColor} onSelect={setFloorColor} />
-      <SwatchRow label="Walls" colors={wallSwatches} selected={wallColor} onSelect={setWallColor} />
-      <BackgroundPicker selected={backgroundId} onSelect={setBackgroundId} />
+      <Animated.View key={section} entering={FadeInDown.duration(130)} style={styles.styleChoiceRail}>
+        {section === 'background' ? <BackgroundPicker selected={backgroundId} onSelect={setBackgroundId} /> : null}
+        {section === 'floor' ? (
+          <ColorPicker label="Floor" colors={floorSwatches} selected={floorColor} onSelect={setFloorColor} />
+        ) : null}
+        {section === 'walls' ? (
+          <ColorPicker label="Walls" colors={wallSwatches} selected={wallColor} onSelect={setWallColor} />
+        ) : null}
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -581,14 +639,20 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
         <View style={styles.mainPills}>
           <PillButton
             label={panel === 'catalog' ? 'Close' : 'Add'}
+            accessibilityHint={panel === 'catalog' ? 'Closes the furniture choices' : 'Opens the furniture choices'}
+            accessibilityLabel={panel === 'catalog' ? 'Close Add menu' : 'Open Add menu'}
             active={panel === 'catalog'}
+            expanded={panel === 'catalog'}
             icon={panel === 'catalog' ? <X color={palette.cream} size={21} /> : <Plus color={palette.ink} size={22} />}
             onPress={() => setPanel((current) => (current === 'catalog' ? null : 'catalog'))}
           />
           <PillButton
-            label="Style"
+            label={panel === 'style' ? 'Close' : 'Style'}
+            accessibilityHint={panel === 'style' ? 'Closes the style choices' : 'Opens room style choices'}
+            accessibilityLabel={panel === 'style' ? 'Close Style menu' : 'Open Style menu'}
             active={panel === 'style'}
-            icon={<PaletteIcon color={panel === 'style' ? palette.cream : palette.ink} size={20} />}
+            expanded={panel === 'style'}
+            icon={panel === 'style' ? <X color={palette.cream} size={21} /> : <PaletteIcon color={palette.ink} size={20} />}
             onPress={() => setPanel((current) => (current === 'style' ? null : 'style'))}
           />
           <PillButton
@@ -600,6 +664,7 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
         </View>
 
         {panel === 'catalog' ? <CatalogTray onClose={closePanel} /> : null}
+        {panel === 'style' ? <StylePanel /> : null}
 
         {!modelsReady || !backgroundReady ? (
           <View style={styles.modelLoadingHint}>
@@ -612,7 +677,6 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
         {!panel ? <SelectedItemActions /> : null}
       </View>
 
-      {panel === 'style' ? <StylePanel onClose={closePanel} /> : null}
       {notice ? (
         <Animated.View entering={FadeInDown.duration(180)} exiting={FadeOutDown.duration(150)} pointerEvents="none" style={styles.notice}>
           <Camera color={palette.gold} size={22} />
@@ -715,20 +779,24 @@ const styles = StyleSheet.create({
     backgroundColor: palette.ink,
   },
   mainPills: {
+    width: '100%',
     marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
+    gap: 6,
   },
   pillButton: {
-    minWidth: 96,
+    flex: 1,
+    minWidth: 0,
+    maxWidth: 112,
     height: 48,
-    paddingHorizontal: 17,
+    paddingHorizontal: 10,
     borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: 'rgba(246, 244, 239, 0.96)',
     ...softShadow,
   },
@@ -775,45 +843,57 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginRight: 16,
   },
-  sheet: {
+  styleTray: {
+    width: '100%',
+    marginTop: 8,
+    gap: 7,
+  },
+  styleSectionRow: {
     alignSelf: 'center',
-    width: '94%',
-    minHeight: 292,
-    maxHeight: 330,
-    marginBottom: 8,
-    paddingTop: 8,
-    paddingBottom: 13,
-    borderRadius: 30,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(246, 244, 239, 0.985)',
-    ...softShadow,
-  },
-  styleSheet: {
-    minHeight: 245,
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 42,
-    height: 4,
-    marginBottom: 8,
-    borderRadius: 2,
-    backgroundColor: 'rgba(78,59,49,0.2)',
-  },
-  sheetHeadingRow: {
-    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 6,
   },
-  sheetTitle: {
+  styleSectionChip: {
+    height: 44,
+    minWidth: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  styleSectionChipVisual: {
+    width: '100%',
+    height: 32,
+    paddingHorizontal: 13,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(246, 244, 239, 0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(78,59,49,0.08)',
+  },
+  styleSectionChipActive: {
+    backgroundColor: palette.ink,
+    borderColor: palette.ink,
+  },
+  styleSectionText: {
     color: palette.ink,
     fontFamily: 'Nunito_800ExtraBold',
-    fontSize: 18,
-  },
-  sheetSubtitle: {
-    color: palette.inkMuted,
-    fontFamily: 'Nunito_700Bold',
     fontSize: 11,
+  },
+  styleSectionTextActive: {
+    color: palette.cream,
+  },
+  styleChoiceRail: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 340,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(246, 244, 239, 0.96)',
+    ...softShadow,
   },
   catalogTray: {
     width: '100%',
@@ -890,64 +970,59 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 13,
   },
-  swatchSection: {
-    paddingHorizontal: 18,
-    marginTop: 13,
-  },
-  swatchLabel: {
-    marginBottom: 7,
-    color: palette.ink,
-    fontFamily: 'Nunito_800ExtraBold',
-    fontSize: 13,
-  },
-  swatchRow: {
+  styleColorRow: {
     flexDirection: 'row',
-    gap: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
-  swatchOuter: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  styleSwatchOuter: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  swatchOuterActive: {
+  styleSwatchOuterActive: {
     borderColor: palette.ink,
   },
-  swatch: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  styleSwatch: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: 'rgba(78,59,49,0.12)',
   },
-  backgroundScroller: {
+  styleBackgroundScroller: {
     flexGrow: 0,
+    width: '100%',
   },
-  backgroundRow: {
-    gap: 7,
-    paddingVertical: 2,
-    paddingRight: 2,
+  styleBackgroundRow: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    gap: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
   },
-  backgroundOption: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  styleBackgroundOption: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
     backgroundColor: palette.paper,
   },
-  backgroundOptionActive: {
+  styleBackgroundOptionActive: {
     borderColor: palette.ink,
   },
-  backgroundImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  styleBackgroundImage: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1,
     borderColor: 'rgba(78,59,49,0.1)',
   },
