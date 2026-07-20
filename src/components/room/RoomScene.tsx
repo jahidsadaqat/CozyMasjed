@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { DustMotes } from '../DustMotes';
+import { GodRay } from '../GodRay';
 import { LightSnow } from '../LightSnow';
 import { useRoomStore } from '../../store/roomStore';
 import { ModelValidationScene } from '../models/ModelValidationScene';
@@ -33,6 +34,7 @@ export function RoomScene() {
         color={isWarm ? '#FFE1BC' : '#FFF3DC'}
       />
       <RoomShell floorColor={floorColor} wallColor={wallColor} accentColor={accentColor} />
+      <GodRay />
       <DustMotes />
       <LightSnow />
       <PlacedItems />
