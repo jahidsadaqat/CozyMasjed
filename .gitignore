@@ -40,3 +40,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Large source GLBs extracted from Meshy export archives.
+/assets/models/*.glb
+/assets/models/originals/
+/assets/models/incoming/
+/assets/models/**/*.zip
