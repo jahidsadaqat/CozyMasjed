@@ -1,6 +1,6 @@
 # GLB mobile optimization report
 
-All 36 Meshy exports were optimized with `@gltf-transform/cli` 4.4.1 for mobile web:
+All 63 Meshy exports were optimized with `@gltf-transform/cli` 4.4.1 for mobile web:
 
 ```powershell
 npx gltf-transform optimize input.glb output.glb --texture-compress webp --texture-size 1024
@@ -46,15 +46,42 @@ The source scan and the final `inspect` pass found no skins or animations in thi
 | `019f8506-e6cc-7577-871a-9424a3a3c3a6/Meshy_AI_model.glb` | 78.98 MiB | 607.7 KiB | 1024x1024 | 21,259 | None |
 | `019f8507-1554-7063-a1bf-12353f048de6/Meshy_AI_model.glb` | 76.33 MiB | 540.2 KiB | 1024x1024 | 22,021 | None |
 | `019f8507-4154-759d-9298-95f8f238a8fb/Meshy_AI_model.glb` | 78.44 MiB | 494.0 KiB | 1024x1024 | 19,476 | None |
+| `019f8537-c261-758b-87e0-40852a0d0c5a/Meshy_AI_model.glb` | 25.32 MiB | 1996.8 KiB | 1024x1024 | 150,196 | None |
+| `019f8537-f31f-759c-93ef-0f074cc696a6/Meshy_AI_model.glb` | 23.30 MiB | 1784.9 KiB | 1024x1024 | 142,449 | None |
+| `019f8538-17b2-7bad-b38f-d89d7f1da4da/Meshy_AI_model.glb` | 20.50 MiB | 1307.5 KiB | 1024x1024 | 97,106 | None |
+| `019f8538-6519-7f30-af82-b02549bf4991/Meshy_AI_model.glb` | 11.19 MiB | 621.9 KiB | 1024x1024 | 44,660 | None |
+| `019f8538-db8a-7bdc-992d-ddea36a66d29/Meshy_AI_model.glb` | 31.35 MiB | 1887.3 KiB | 512x512 | 149,736 | None |
+| `019f8539-0e83-7779-8ec3-48ad5c706b28/Meshy_AI_model.glb` | 25.63 MiB | 1970.8 KiB | 1024x1024 | 152,901 | None |
+| `019f8539-585b-7f55-83a0-38216c0bc5ae/Meshy_AI_model.glb` | 74.27 MiB | 1900.0 KiB | 512x512 | 136,736 | None |
+| `019f8539-871b-7f5c-ab84-ee98d75c2100/Meshy_AI_model.glb` | 17.68 MiB | 1213.5 KiB | 1024x1024 | 89,023 | None |
+| `019f8539-bee8-7f89-b461-dbc032e496c7/Meshy_AI_model.glb` | 33.61 MiB | 1806.3 KiB | 512x512 | 143,995 | None |
+| `019f8539-fd3d-7f9d-b350-85da1bc283b1/Meshy_AI_model.glb` | 19.95 MiB | 1420.8 KiB | 1024x1024 | 110,413 | None |
+| `019f854f-c88e-7fc0-90af-b33c315e10d4/Meshy_AI_model.glb` | 27.18 MiB | 1610.0 KiB | 512x512 | 127,509 | None |
+| `019f854f-e6a3-7206-8991-125d8dc6b06e/Meshy_AI_model.glb` | 36.37 MiB | 1746.4 KiB | 512x512 | 137,974 | None |
+| `019f8550-05c9-7bb2-b7f7-ac81c843d21f/Meshy_AI_model.glb` | 26.69 MiB | 1696.9 KiB | 512x512 | 130,809 | None |
+| `019f8550-27ed-7ff8-b41c-f5f079cf1b2f/Meshy_AI_model.glb` | 30.09 MiB | 1817.7 KiB | 512x512 | 142,343 | None |
+| `019f8550-4906-75f8-b828-3062a6928b6e/Meshy_AI_model.glb` | 64.17 MiB | 1778.0 KiB | 512x512 | 136,655 | None |
+| `019f8550-6bf0-760b-83ee-d75448bdbe6e/Meshy_AI_model.glb` | 23.55 MiB | 1826.9 KiB | 1024x1024 | 139,894 | None |
+| `019f8550-9d69-7024-bee4-b3205c7014eb/Meshy_AI_model.glb` | 17.50 MiB | 1279.5 KiB | 1024x1024 | 94,965 | None |
+| `019f8550-bf7a-7c08-8f94-f35788456356/Meshy_AI_model.glb` | 38.98 MiB | 1809.2 KiB | 512x512 | 140,585 | None |
+| `019f8550-f579-7033-a953-9bf91d447fcd/Meshy_AI_model.glb` | 11.74 MiB | 686.0 KiB | 1024x1024 | 50,541 | None |
+| `019f8552-04e3-70cc-b4ea-c05cd99990e9/Meshy_AI_model.glb` | 37.38 MiB | 1688.1 KiB | 512x512 | 131,929 | None |
+| `019f8552-3336-7695-a9e9-94a910c9a521/Meshy_AI_model.glb` | 22.47 MiB | 1882.4 KiB | 1024x1024 | 147,576 | None |
+| `019f8552-544c-70e1-aa91-3ef0b52ae6e4/Meshy_AI_model.glb` | 18.58 MiB | 1393.0 KiB | 1024x1024 | 109,835 | None |
+| `019f8552-74ff-7c74-aca9-569bcdd979c5/Meshy_AI_model.glb` | 38.17 MiB | 1818.5 KiB | 512x512 | 142,184 | None |
+| `019f8552-9418-76a5-a200-155ab3460399/Meshy_AI_model.glb` | 49.80 MiB | 1995.0 KiB | 512x512 | 154,202 | None |
+| `019f8552-d36f-76be-8307-25be90989881/Meshy_AI_model.glb` | 25.32 MiB | 2010.6 KiB | 1024x1024 | 155,038 | None |
+| `019f8552-ef33-7c93-8234-c8f3158710a2/Meshy_AI_model.glb` | 9.83 MiB | 510.3 KiB | 1024x1024 | 37,376 | None |
+| `019f8553-2207-7118-8d28-bacdef4fc60f/Meshy_AI_model.glb` | 26.28 MiB | 1405.1 KiB | 512x512 | 111,321 | None |
 
 ## Verification
 
-- Files inspected: 36
-- Total source size: 2650.03 MiB
-- Total optimized size: 12.84 MiB
-- Largest optimized file: 697.9 KiB
-- Budget result: every file is below the 2 MiB prop limit; no 512px retry was needed.
+- Files inspected: 63
+- Total source size: 3436.94 MiB
+- Total optimized size: 54.69 MiB
+- Largest optimized file: 2010.6 KiB
+- Budget result: every file is below the 2 MiB prop limit. Thirteen high-density files use the required 512px fallback and additional static-mesh simplification.
 - Texture result: every embedded texture is WebP and no texture exceeds 1024x1024.
 - Animation result: this export batch contains no animation clips, including no Salah, Walking, or Running clips.
-- Validator result: all 36 files report no glTF validation errors.
+- Validator result: all 63 files report no glTF validation errors.
 - Loader requirement: outputs use `EXT_meshopt_compression`; the app registers `MeshoptDecoder` before loading.

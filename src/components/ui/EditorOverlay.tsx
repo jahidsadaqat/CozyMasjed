@@ -44,7 +44,7 @@ type OpenPanel = 'catalog' | 'style' | 'weather' | null;
 type FilterCategory = CatalogCategory | 'All';
 type StyleSection = 'background' | 'floor' | 'walls';
 
-const categories: readonly FilterCategory[] = ['All', 'Prayer', 'Lights', 'Seating', 'Decor', 'Wall'];
+const categories: readonly FilterCategory[] = ['All', 'New', 'Prayer', 'Lights', 'Seating', 'Decor', 'Wall'];
 const styleSections: readonly { id: StyleSection; label: string }[] = [
   { id: 'background', label: 'Background' },
   { id: 'floor', label: 'Floor' },

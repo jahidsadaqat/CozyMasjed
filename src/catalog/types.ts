@@ -1,4 +1,4 @@
-export type CatalogCategory = 'Prayer' | 'Lights' | 'Seating' | 'Decor' | 'Wall' | 'Buildings';
+export type CatalogCategory = 'New' | 'Prayer' | 'Lights' | 'Seating' | 'Decor' | 'Wall' | 'Buildings';
 export type PlacementSurface = 'floor' | 'wallL' | 'wallR';
 export type ProceduralModelKind =
   | 'tasbih-crescent-hook'

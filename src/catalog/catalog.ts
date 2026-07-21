@@ -1,8 +1,29 @@
 import { palette } from '../theme/palette';
-import { modelAssets } from './assets';
+import { importedModelAssets, modelAssets } from './assets';
 import type { CatalogItem } from './types';
 
+const importedPlaceholderColors = [
+  palette.mutedTeal,
+  palette.gold,
+  palette.terracotta,
+  '#7EA48E',
+  '#D98D74',
+  '#94B7AE',
+] as const;
+
+const importedCatalogItems: readonly CatalogItem[] = importedModelAssets.map((model, index) => ({
+  id: model.id,
+  name: model.name,
+  category: 'New',
+  asset: model.asset,
+  allowedSurfaces: ['floor'],
+  footprint: { width: 2, depth: 2 },
+  modelScale: 0.48,
+  placeholderColor: importedPlaceholderColors[index % importedPlaceholderColors.length],
+}));
+
 export const catalog: readonly CatalogItem[] = [
+  ...importedCatalogItems,
   {
     id: 'masjid-model',
     name: 'Prayer Rug',
