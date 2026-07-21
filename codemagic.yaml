@@ -1,0 +1,50 @@
+workflows:
+  cozy-masjid-ios:
+    name: Cozy Masjid iOS App Store Build
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    integrations:
+      app_store_connect: "Codemagic"
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.cozymasjid.app
+      vars:
+        BUNDLE_ID: "com.cozymasjid.app"
+        APP_STORE_APPLE_ID: "6792915678"
+        XCODE_WORKSPACE: "CozyMasjid.xcworkspace"
+        XCODE_SCHEME: "CozyMasjid"
+      node: 24.17.0
+      xcode: 26.6
+      cocoapods: default
+    scripts:
+      - name: Install JavaScript dependencies
+        script: npm ci
+      - name: Validate project
+        script: |
+          npm run typecheck
+          npx expo-doctor
+      - name: Generate iOS native project
+        script: EXPO_NO_GIT_STATUS=1 npx expo prebuild --platform ios --clean --no-install
+      - name: Install CocoaPods dependencies
+        script: cd ios && pod install
+      - name: Apply App Store signing profiles
+        script: xcode-project use-profiles
+      - name: Set next Apple build number
+        script: |
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || true)
+          if [ -z "$LATEST_BUILD_NUMBER" ]; then
+            LATEST_BUILD_NUMBER=0
+          fi
+          cd "$CM_BUILD_DIR/ios"
+          agvtool new-version -all "$((LATEST_BUILD_NUMBER + 1))"
+      - name: Build signed IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
