@@ -1,38 +1,28 @@
 import { palette } from '../theme/palette';
-import { importedModelAssets, modelAssets } from './assets';
+import { modelAssets } from './assets';
+import { importedCatalogItems } from './importedCatalog';
 import type { CatalogItem } from './types';
-
-const importedPlaceholderColors = [
-  palette.mutedTeal,
-  palette.gold,
-  palette.terracotta,
-  '#7EA48E',
-  '#D98D74',
-  '#94B7AE',
-] as const;
-
-const importedCatalogItems: readonly CatalogItem[] = importedModelAssets.map((model, index) => ({
-  id: model.id,
-  name: model.name,
-  category: 'New',
-  asset: model.asset,
-  allowedSurfaces: ['floor'],
-  footprint: { width: 2, depth: 2 },
-  modelScale: 0.48,
-  placeholderColor: importedPlaceholderColors[index % importedPlaceholderColors.length],
-}));
 
 export const catalog: readonly CatalogItem[] = [
   ...importedCatalogItems,
   {
     id: 'masjid-model',
     name: 'Prayer Rug',
-    category: 'Prayer',
+    category: 'Prayer Rugs',
     asset: modelAssets.masjid,
     allowedSurfaces: ['floor'],
     footprint: { width: 2, depth: 2 },
     modelScale: 0.76,
     placeholderColor: palette.mutedTeal,
+    attachmentSlots: [
+      {
+        id: 'prayer-center',
+        accepts: ['cat', 'figure'],
+        localPosition: [-0.46, 0.065, 0],
+        hitPosition: [0, 0.065, 0],
+        hitSize: { width: 1.45, depth: 0.82 },
+      },
+    ],
   },
   {
     id: 'fanous-lantern',
@@ -48,7 +38,7 @@ export const catalog: readonly CatalogItem[] = [
   {
     id: 'tasbih',
     name: 'Open Quran & Rehal',
-    category: 'Prayer',
+    category: 'Quran',
     asset: modelAssets.tasbih,
     allowedSurfaces: ['floor'],
     footprint: { width: 1, depth: 1 },
@@ -58,7 +48,7 @@ export const catalog: readonly CatalogItem[] = [
   {
     id: 'rehal-quran',
     name: 'Quran & Rehal',
-    category: 'Prayer',
+    category: 'Quran',
     asset: modelAssets.rehalQuran,
     allowedSurfaces: ['floor'],
     footprint: { width: 1, depth: 1 },
@@ -68,7 +58,7 @@ export const catalog: readonly CatalogItem[] = [
   {
     id: 'minbar',
     name: 'Minbar',
-    category: 'Prayer',
+    category: 'Minbar',
     asset: modelAssets.minbar,
     allowedSurfaces: ['floor'],
     footprint: { width: 2, depth: 2 },
@@ -84,6 +74,14 @@ export const catalog: readonly CatalogItem[] = [
     footprint: { width: 1, depth: 1 },
     modelScale: 0.39,
     placeholderColor: '#D98D74',
+    attachmentSlots: [
+      {
+        id: 'cushion-center',
+        accepts: ['cat', 'figure'],
+        localPosition: [0, 0.325, 0],
+        hitSize: { width: 0.66, depth: 0.66 },
+      },
+    ],
   },
   {
     id: 'curtains',

@@ -1,5 +1,31 @@
-export type CatalogCategory = 'New' | 'Prayer' | 'Lights' | 'Seating' | 'Decor' | 'Wall' | 'Buildings';
+export type CatalogCategory =
+  | 'Minbar'
+  | 'Prayer Rugs'
+  | 'Quran'
+  | 'Tasbih'
+  | 'Characters'
+  | 'Pets'
+  | 'Lights'
+  | 'Seating'
+  | 'Tables'
+  | 'Storage'
+  | 'Plants'
+  | 'Serving'
+  | 'Rugs'
+  | 'Decor'
+  | 'Wall'
+  | 'Buildings';
 export type PlacementSurface = 'floor' | 'wallL' | 'wallR';
+export type AttachmentRole = 'cat' | 'figure';
+export type AttachmentSlot = {
+  id: string;
+  accepts: readonly AttachmentRole[];
+  localPosition: readonly [number, number, number];
+  hitPosition?: readonly [number, number, number];
+  localRotation?: number;
+  hitSize: { width: number; depth: number };
+  lockRotation?: boolean;
+};
 export type ProceduralModelKind =
   | 'tasbih-crescent-hook'
   | 'tasbih-mihrab-rack'
@@ -19,6 +45,8 @@ type CatalogItemBase = {
   placeholderColor: string;
   emitsLight?: boolean;
   rotatable?: boolean;
+  attachmentRole?: AttachmentRole;
+  attachmentSlots?: readonly AttachmentSlot[];
 };
 
 export type AssetCatalogItem = CatalogItemBase & {

@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { catalogById } from '../catalog/catalog';
 import type { PlacementSurface } from '../catalog/types';
 import { CAMERA_TARGET, DEFAULT_CAMERA_YAW, DEFAULT_CAMERA_ZOOM } from '../domain/camera';
+import { canAttachToSlot, getAttachmentSlot } from '../domain/attachments';
+import { defaultBuildingId, type BuildingId } from '../domain/buildings';
 import {
   getPlacementSize,
   GRID_SIZE,
@@ -57,6 +59,7 @@ export type RoomState = RoomSnapshot & {
   past: RoomSnapshot[];
   future: RoomSnapshot[];
   isHydrated: boolean;
+  activeBuildingId: BuildingId;
   selectedItemId: string | null;
   placingCatalogId: string | null;
   placementPreview: PlacementPreview | null;
@@ -68,6 +71,7 @@ export type RoomState = RoomSnapshot & {
   isCaptureClean: boolean;
   readyModelItemIds: string[];
   readyBackgroundId: BackgroundId | null;
+  setActiveBuildingId: (buildingId: BuildingId) => void;
   setFloorColor: (color: string) => void;
   setWallColor: (color: string) => void;
   setBackgroundId: (backgroundId: BackgroundId) => void;
@@ -90,7 +94,7 @@ export type RoomState = RoomSnapshot & {
   deleteSelected: () => void;
   undo: () => boolean;
   redo: () => boolean;
-  hydrateRoom: (snapshot: RoomSnapshot) => void;
+  hydrateRoom: (snapshot: RoomSnapshot, activeBuildingId?: BuildingId) => void;
   finishHydration: () => void;
   setCameraView: (zoom: number, yaw: number, target: [number, number, number]) => void;
   setCaptureClean: (clean: boolean) => void;
@@ -110,7 +114,10 @@ const initialRoom: RoomSnapshot = {
 };
 
 function clonePlacedItems(items: readonly PlacedItem[]) {
-  return items.map((item) => ({ ...item }));
+  return items.map((item) => ({
+    ...item,
+    attachment: item.attachment ? { ...item.attachment } : undefined,
+  }));
 }
 
 export function cloneRoomSnapshot(snapshot: RoomSnapshot): RoomSnapshot {
@@ -148,11 +155,14 @@ export function roomSnapshotsEqual(a: RoomSnapshot, b: RoomSnapshot) {
     const other = b.placedItems[index];
     return (
       item.id === other.id &&
+      item.buildingId === other.buildingId &&
       item.catalogId === other.catalogId &&
       item.gridX === other.gridX &&
       item.gridY === other.gridY &&
       item.rotation === other.rotation &&
-      item.surface === other.surface
+      item.surface === other.surface &&
+      item.attachment?.hostItemId === other.attachment?.hostItemId &&
+      item.attachment?.slotId === other.attachment?.slotId
     );
   });
 }
@@ -164,9 +174,17 @@ function makePlacedId(catalogId: string) {
 export function isValidPlacement(candidate: PlacedItem, placedItems: readonly PlacedItem[], ignoredItemId?: string) {
   const candidateCatalog = catalogById[candidate.catalogId];
   if (!candidateCatalog || !candidateCatalog.allowedSurfaces.includes(candidate.surface)) return false;
+
+  if (candidate.attachment) {
+    const host = placedItems.find((item) => item.id === candidate.attachment?.hostItemId);
+    return host && host.buildingId === candidate.buildingId
+      ? canAttachToSlot(candidate, host, candidate.attachment.slotId, placedItems, ignoredItemId)
+      : false;
+  }
+
   if (!isWithinGrid(candidate, candidateCatalog)) return false;
   return !placedItems.some((other) => {
-    if (other.id === ignoredItemId) return false;
+    if (other.buildingId !== candidate.buildingId || other.id === ignoredItemId || other.attachment) return false;
     const otherCatalog = catalogById[other.catalogId];
     return otherCatalog ? placementsOverlap(candidate, candidateCatalog, other, otherCatalog) : false;
   });
@@ -175,6 +193,7 @@ export function isValidPlacement(candidate: PlacedItem, placedItems: readonly Pl
 function makeInitialPlacementPreview(
   catalogId: string,
   placedItems: readonly PlacedItem[],
+  buildingId: BuildingId,
 ): PlacementPreview | null {
   const catalogItem = catalogById[catalogId];
   if (!catalogItem) return null;
@@ -194,7 +213,7 @@ function makeInitialPlacementPreview(
     const candidates: PlacedItem[] = [];
     for (let gridY = 0; gridY <= maxY; gridY += 1) {
       for (let gridX = 0; gridX <= maxX; gridX += 1) {
-        candidates.push({ id, catalogId, gridX, gridY, rotation: 0, surface });
+        candidates.push({ id, buildingId, catalogId, gridX, gridY, rotation: 0, surface });
       }
     }
     candidates.sort((a, b) => {
@@ -247,6 +266,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     past: [],
     future: [],
     isHydrated: false,
+    activeBuildingId: defaultBuildingId,
     selectedItemId: null,
     placingCatalogId: null,
     placementPreview: null,
@@ -258,6 +278,18 @@ export const useRoomStore = create<RoomState>((set, get) => {
     isCaptureClean: false,
     readyModelItemIds: [],
     readyBackgroundId: null,
+    setActiveBuildingId: (activeBuildingId) => {
+      const state = get();
+      if (state.activeBuildingId === activeBuildingId) return;
+      set({
+        activeBuildingId,
+        ...clearEditorPatch,
+        // An edit history spanning hidden buildings makes Undo appear to do
+        // nothing. Each building therefore starts with a fresh local session.
+        past: [],
+        future: [],
+      });
+    },
     setFloorColor: (floorColor) => commitRoom({ ...readRoomSnapshot(get()), floorColor }),
     setWallColor: (wallColor) => commitRoom({ ...readRoomSnapshot(get()), wallColor }),
     setBackgroundId: (backgroundId) => {
@@ -267,7 +299,12 @@ export const useRoomStore = create<RoomState>((set, get) => {
     setAccentColor: (accentColor) => commitRoom({ ...readRoomSnapshot(get()), accentColor }),
     setWeather: (weather) => commitRoom({ ...readRoomSnapshot(get()), weather }),
     startPlacing: (placingCatalogId) => {
-      const placementPreview = makeInitialPlacementPreview(placingCatalogId, get().placedItems);
+      const state = get();
+      const placementPreview = makeInitialPlacementPreview(
+        placingCatalogId,
+        state.placedItems,
+        state.activeBuildingId,
+      );
       if (!placementPreview) return;
       set({
         placingCatalogId,
@@ -289,7 +326,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
       }
       set({
         placementPreview: {
-          item: { ...candidate },
+          item: { ...candidate, attachment: candidate.attachment ? { ...candidate.attachment } : undefined },
           valid: isValidPlacement(candidate, state.placedItems),
         },
       });
@@ -303,20 +340,32 @@ export const useRoomStore = create<RoomState>((set, get) => {
     commitPlacementPreview: () => {
       const state = get();
       if (!state.placementPreview?.valid || !state.placingCatalogId) return false;
-      const candidate = { ...state.placementPreview.item };
+      const candidate = {
+        ...state.placementPreview.item,
+        attachment: state.placementPreview.item.attachment
+          ? { ...state.placementPreview.item.attachment }
+          : undefined,
+      };
       return commitRoom(
         { ...readRoomSnapshot(state), placedItems: [...clonePlacedItems(state.placedItems), candidate] },
         { selectedItemId: candidate.id, placingCatalogId: null, placementPreview: null },
       );
     },
     selectItem: (selectedItemId) => {
-      if (selectedItemId && !get().placedItems.some((item) => item.id === selectedItemId)) return;
+      const state = get();
+      if (
+        selectedItemId &&
+        !state.placedItems.some(
+          (item) => item.id === selectedItemId && item.buildingId === state.activeBuildingId,
+        )
+      ) return;
       set({ selectedItemId, placingCatalogId: null, placementPreview: null, draggingItemId: null, dragPreview: null });
     },
     placeCatalogItem: (catalogId, gridX, gridY, surface) => {
       const state = get();
       const candidate: PlacedItem = {
         id: makePlacedId(catalogId),
+        buildingId: state.activeBuildingId,
         catalogId,
         gridX,
         gridY,
@@ -330,11 +379,17 @@ export const useRoomStore = create<RoomState>((set, get) => {
       );
     },
     beginDrag: (id) => {
-      const item = get().placedItems.find((placed) => placed.id === id);
+      const state = get();
+      const item = state.placedItems.find(
+        (placed) => placed.id === id && placed.buildingId === state.activeBuildingId,
+      );
       if (!item) return;
       set({
         draggingItemId: id,
-        dragPreview: { item: { ...item }, valid: true },
+        dragPreview: {
+          item: { ...item, attachment: item.attachment ? { ...item.attachment } : undefined },
+          valid: true,
+        },
         selectedItemId: id,
         placingCatalogId: null,
         placementPreview: null,
@@ -345,7 +400,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
       if (!state.draggingItemId || candidate.id !== state.draggingItemId) return;
       set({
         dragPreview: {
-          item: { ...candidate },
+          item: { ...candidate, attachment: candidate.attachment ? { ...candidate.attachment } : undefined },
           valid: isValidPlacement(candidate, state.placedItems, state.draggingItemId),
         },
       });
@@ -372,12 +427,23 @@ export const useRoomStore = create<RoomState>((set, get) => {
     cancelDrag: () => set({ dragPreview: null, draggingItemId: null }),
     rotateSelected: (direction) => {
       const state = get();
-      const selected = state.placedItems.find((item) => item.id === state.selectedItemId);
+      const selected = state.placedItems.find(
+        (item) => item.id === state.selectedItemId && item.buildingId === state.activeBuildingId,
+      );
       if (!selected) return false;
       const catalogItem = catalogById[selected.catalogId];
       if (!catalogItem || catalogItem.rotatable === false) return false;
       const rotation = nextQuarterTurn(selected.rotation, direction);
-      const candidate = rotateAroundCenter(selected, catalogItem, rotation);
+      const attachmentHost = selected.attachment
+        ? state.placedItems.find((item) => item.id === selected.attachment?.hostItemId)
+        : null;
+      const attachmentSlot = attachmentHost && selected.attachment
+        ? getAttachmentSlot(attachmentHost, selected.attachment.slotId)
+        : null;
+      if (attachmentSlot?.lockRotation) return false;
+      const candidate = selected.attachment
+        ? { ...selected, rotation }
+        : rotateAroundCenter(selected, catalogItem, rotation);
       if (!isValidPlacement(candidate, state.placedItems, selected.id)) return false;
       return commitRoom({
         ...readRoomSnapshot(state),
@@ -386,9 +452,15 @@ export const useRoomStore = create<RoomState>((set, get) => {
     },
     duplicateSelected: () => {
       const state = get();
-      const selected = state.placedItems.find((item) => item.id === state.selectedItemId);
+      const selected = state.placedItems.find(
+        (item) => item.id === state.selectedItemId && item.buildingId === state.activeBuildingId,
+      );
       if (!selected) return false;
-      const duplicateBase = { ...selected, id: makePlacedId(selected.catalogId) };
+      const duplicateBase = {
+        ...selected,
+        id: makePlacedId(selected.catalogId),
+        attachment: undefined,
+      };
       const target = nearbyAnchors(duplicateBase).find((candidate) => isValidPlacement(candidate, state.placedItems));
       if (!target) return false;
       return commitRoom(
@@ -398,15 +470,26 @@ export const useRoomStore = create<RoomState>((set, get) => {
     },
     deleteSelected: () => {
       const state = get();
-      if (!state.selectedItemId || !state.placedItems.some((item) => item.id === state.selectedItemId)) return;
+      if (
+        !state.selectedItemId ||
+        !state.placedItems.some(
+          (item) => item.id === state.selectedItemId && item.buildingId === state.activeBuildingId,
+        )
+      ) return;
+      const removedIds = new Set([
+        state.selectedItemId,
+        ...state.placedItems
+          .filter((item) => item.attachment?.hostItemId === state.selectedItemId)
+          .map((item) => item.id),
+      ]);
       commitRoom(
         {
           ...readRoomSnapshot(state),
-          placedItems: state.placedItems.filter((item) => item.id !== state.selectedItemId).map((item) => ({ ...item })),
+          placedItems: clonePlacedItems(state.placedItems.filter((item) => !removedIds.has(item.id))),
         },
         {
           ...clearEditorPatch,
-          readyModelItemIds: state.readyModelItemIds.filter((id) => id !== state.selectedItemId),
+          readyModelItemIds: state.readyModelItemIds.filter((id) => !removedIds.has(id)),
         },
       );
     },
@@ -442,9 +525,10 @@ export const useRoomStore = create<RoomState>((set, get) => {
       });
       return true;
     },
-    hydrateRoom: (snapshot) =>
+    hydrateRoom: (snapshot, activeBuildingId = defaultBuildingId) =>
       set({
         ...cloneRoomSnapshot(snapshot),
+        activeBuildingId,
         ...clearEditorPatch,
         past: [],
         future: [],

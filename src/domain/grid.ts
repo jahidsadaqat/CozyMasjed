@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { CatalogItem, PlacementSurface } from '../catalog/types';
+import type { BuildingId } from './buildings';
 
 export const GRID_SIZE = 8;
 export const WALL_ROWS = 4;
@@ -10,13 +11,20 @@ export const WALL_INSET = -2.035;
 
 export type QuarterTurn = 0 | 90 | 180 | 270;
 
+export type ItemAttachment = {
+  hostItemId: string;
+  slotId: string;
+};
+
 export type PlacedItem = {
   id: string;
+  buildingId: BuildingId;
   catalogId: string;
   gridX: number;
   gridY: number;
   rotation: QuarterTurn;
   surface: PlacementSurface;
+  attachment?: ItemAttachment;
 };
 
 export type PlacementSize = { width: number; height: number };

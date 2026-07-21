@@ -1,10 +1,12 @@
 import { Suspense } from 'react';
 import { GodRay } from '../GodRay';
+import { DEFAULT_BUILDING_ID } from '../../domain/buildings';
 import { useRoomStore } from '../../store/roomStore';
 import { weatherVisualProfiles } from '../../domain/weather';
 import { ModelValidationScene } from '../models/ModelValidationScene';
 import { PlacedItems } from './PlacedItems';
 import { RoomShell } from './RoomShell';
+import { ArchedAtriumShell } from './ArchedAtriumShell';
 import { SceneBackdrop } from './SceneBackdrop';
 
 // Kept off in the product scene. Set true only while validating the complete asset pack.
@@ -16,6 +18,7 @@ export function RoomScene() {
   const backgroundId = useRoomStore((state) => state.backgroundId);
   const accentColor = useRoomStore((state) => state.accentColor);
   const weather = useRoomStore((state) => state.weather);
+  const activeBuildingId = useRoomStore((state) => state.activeBuildingId);
   const weatherProfile = weatherVisualProfiles[weather];
   const roomAmbientIntensity = Math.max(weatherProfile.ambientIntensity, 0.55);
   const roomHemisphereIntensity = Math.max(weatherProfile.hemisphereIntensity, 0.45);
@@ -35,8 +38,14 @@ export function RoomScene() {
         intensity={roomDirectionalIntensity}
         color={weatherProfile.directionalColor}
       />
-      <RoomShell floorColor={floorColor} wallColor={wallColor} accentColor={accentColor} />
-      <GodRay />
+      {activeBuildingId === DEFAULT_BUILDING_ID ? (
+        <RoomShell floorColor={floorColor} wallColor={wallColor} accentColor={accentColor} />
+      ) : (
+        <Suspense fallback={null}>
+          <ArchedAtriumShell />
+        </Suspense>
+      )}
+      {activeBuildingId === DEFAULT_BUILDING_ID ? <GodRay /> : null}
       <PlacedItems />
       {SHOW_MODEL_VALIDATION_SCENE ? (
         <Suspense fallback={null}>

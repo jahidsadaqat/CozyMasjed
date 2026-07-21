@@ -28,23 +28,46 @@ import {
   X,
 } from 'lucide-react-native';
 import { useMemo, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { catalog, catalogById } from '../../catalog/catalog';
 import { catalogThumbnails } from '../../catalog/thumbnails';
 import type { CatalogCategory, CatalogItem } from '../../catalog/types';
+import { getAttachmentSlot } from '../../domain/attachments';
 import { weatherModes, weatherVisualProfiles, type WeatherMode } from '../../domain/weather';
 import { captureSaveAndShareRoom } from '../../services/roomSnapshot';
 import { useRoomStore } from '../../store/roomStore';
 import { backgroundOptions, type BackgroundId } from '../../theme/backgrounds';
 import { floorSwatches, palette, wallSwatches } from '../../theme/palette';
+import { BuildingSwitcher } from './BuildingSwitcher';
 
 type OpenPanel = 'catalog' | 'style' | 'weather' | null;
 type FilterCategory = CatalogCategory | 'All';
 type StyleSection = 'background' | 'floor' | 'walls';
 
-const categories: readonly FilterCategory[] = ['All', 'New', 'Prayer', 'Lights', 'Seating', 'Decor', 'Wall'];
+const catalogCategoryOrder: readonly CatalogCategory[] = [
+  'Minbar',
+  'Prayer Rugs',
+  'Quran',
+  'Tasbih',
+  'Characters',
+  'Pets',
+  'Seating',
+  'Tables',
+  'Storage',
+  'Plants',
+  'Lights',
+  'Serving',
+  'Rugs',
+  'Decor',
+  'Wall',
+  'Buildings',
+];
+const categories: readonly FilterCategory[] = [
+  'All',
+  ...catalogCategoryOrder.filter((category) => catalog.some((item) => item.category === category)),
+];
 const styleSections: readonly { id: StyleSection; label: string }[] = [
   { id: 'background', label: 'Background' },
   { id: 'floor', label: 'Floor' },
@@ -228,7 +251,8 @@ function PillButton({
 function CategoryGlyph({ item }: { item: CatalogItem }) {
   const glyphColor = '#FFF9EE';
   const common = { color: glyphColor, size: 31, strokeWidth: 1.9 };
-  if (item.category === 'Prayer') return <BookOpen {...common} />;
+  if (item.category === 'Quran') return <BookOpen {...common} />;
+  if (item.category === 'Minbar') return <Landmark {...common} />;
   if (item.category === 'Lights') return <Lamp {...common} />;
   if (item.category === 'Seating') return <Armchair {...common} />;
   if (item.category === 'Wall') return <Frame {...common} />;
@@ -272,15 +296,16 @@ function CatalogTray({ onClose }: { onClose: () => void }) {
           );
         })}
       </ScrollView>
-      <ScrollView
+      <FlatList
+        data={visibleItems}
         horizontal
         contentContainerStyle={styles.itemRow}
-        showsHorizontalScrollIndicator={false}
-        style={styles.itemScroller}
-      >
-        {visibleItems.map((item) => (
+        initialNumToRender={6}
+        keyExtractor={(item) => item.id}
+        maxToRenderPerBatch={6}
+        removeClippedSubviews
+        renderItem={({ item }) => (
           <Pressable
-            key={item.id}
             accessibilityLabel={`Add ${item.name}`}
             accessibilityRole="button"
             onPress={() => {
@@ -302,8 +327,11 @@ function CatalogTray({ onClose }: { onClose: () => void }) {
               {item.name}
             </Text>
           </Pressable>
-        ))}
-      </ScrollView>
+        )}
+        showsHorizontalScrollIndicator={false}
+        style={styles.itemScroller}
+        windowSize={3}
+      />
     </Animated.View>
   );
 }
@@ -460,7 +488,14 @@ function SelectedItemActions() {
   const deleteSelected = useRoomStore((state) => state.deleteSelected);
   const selectedItem = placedItems.find((item) => item.id === selectedItemId);
   if (!selectedItem) return null;
-  const canRotate = catalogById[selectedItem.catalogId]?.rotatable !== false;
+  const attachmentHost = selectedItem.attachment
+    ? placedItems.find((item) => item.id === selectedItem.attachment?.hostItemId)
+    : null;
+  const attachmentSlot = attachmentHost && selectedItem.attachment
+    ? getAttachmentSlot(attachmentHost, selectedItem.attachment.slotId)
+    : null;
+  const canRotate =
+    catalogById[selectedItem.catalogId]?.rotatable !== false && attachmentSlot?.lockRotation !== true;
 
   return (
     <View style={styles.actionPill}>
@@ -492,6 +527,8 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
   const placingCatalogId = useRoomStore((state) => state.placingCatalogId);
   const hasPlacementPreview = useRoomStore((state) => Boolean(state.placementPreview));
   const placedItems = useRoomStore((state) => state.placedItems);
+  const activeBuildingId = useRoomStore((state) => state.activeBuildingId);
+  const draggingItemId = useRoomStore((state) => state.draggingItemId);
   const readyModelItemIds = useRoomStore((state) => state.readyModelItemIds);
   const backgroundId = useRoomStore((state) => state.backgroundId);
   const readyBackgroundId = useRoomStore((state) => state.readyBackgroundId);
@@ -505,7 +542,11 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
   const redo = useRoomStore((state) => state.redo);
   const cancelDrag = useRoomStore((state) => state.cancelDrag);
   const setCaptureClean = useRoomStore((state) => state.setCaptureClean);
-  const modelsReady = placedItems.every((item) => readyModelItemIds.includes(item.id));
+  const activePlacedItems = useMemo(
+    () => placedItems.filter((item) => item.buildingId === activeBuildingId),
+    [activeBuildingId, placedItems],
+  );
+  const modelsReady = activePlacedItems.every((item) => readyModelItemIds.includes(item.id));
   const backgroundReady = readyBackgroundId === backgroundId;
 
   const closePanel = () => setPanel(null);
@@ -567,6 +608,11 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
             onPress={() => setImmersive(false)}
           />
         </View>
+        {!placingCatalogId && !draggingItemId ? (
+          <View style={styles.buildingSwitcherContainer}>
+            <BuildingSwitcher />
+          </View>
+        ) : null}
       </SafeAreaView>
     );
   }
@@ -676,6 +722,12 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
 
         {!panel ? <SelectedItemActions /> : null}
       </View>
+
+      {!placingCatalogId && !draggingItemId && !notice ? (
+        <View style={styles.buildingSwitcherContainer}>
+          <BuildingSwitcher onBeforeChange={() => setPanel(null)} />
+        </View>
+      ) : null}
 
       {notice ? (
         <Animated.View entering={FadeInDown.duration(180)} exiting={FadeOutDown.duration(150)} pointerEvents="none" style={styles.notice}>
@@ -842,6 +894,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     marginTop: 6,
     marginRight: 16,
+  },
+  buildingSwitcherContainer: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: 18,
   },
   styleTray: {
     width: '100%',

@@ -43,7 +43,16 @@ export function RoomCanvas() {
       .onBegin((event) => prepareEditorPan(event.x, event.y))
       .onStart(() => activateEditorPan())
       .onUpdate((event) => updateEditorPan(event.x, event.y, event.translationX))
-      .onFinalize((event, success) => finishEditorPan(success, event.x, event.y));
+      .onFinalize((event, success) =>
+        finishEditorPan(
+          success,
+          event.x,
+          event.y,
+          event.translationX,
+          event.translationY,
+          event.velocityX,
+        ),
+      );
     const pinch = Gesture.Pinch()
       .runOnJS(true)
       .onStart((event) => beginEditorPinch(event.focalX, event.focalY))

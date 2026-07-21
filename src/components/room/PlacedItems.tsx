@@ -1,17 +1,19 @@
 import { useFrame } from '@react-three/fiber/native';
-import { Suspense, useCallback, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { Suspense, useCallback, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { catalogById } from '../../catalog/catalog';
 import { BlobShadow } from '../BlobShadow';
-import { CELL_SIZE, getPlacementSize, placementToWorld, type PlacedItem } from '../../domain/grid';
+import { attachmentSlotHitWorldPosition, resolveItemTransform } from '../../domain/attachments';
+import { CELL_SIZE, getPlacementSize, type PlacedItem } from '../../domain/grid';
 import { useRoomStore } from '../../store/roomStore';
 import { CatalogItemModel } from '../models/CatalogItemModel';
 
-function modelRotation(item: PlacedItem): [number, number, number] {
+function modelRotation(item: PlacedItem, resolvedRotationY?: number): [number, number, number] {
   const catalogItem = catalogById[item.catalogId];
   const base = catalogItem?.modelRotation ?? [0, 0, 0];
   const surfaceTurn = item.surface === 'wallL' ? Math.PI / 2 : 0;
-  return [base[0], base[1] + surfaceTurn + (item.rotation * Math.PI) / 180, base[2]];
+  const rotationY = resolvedRotationY ?? surfaceTurn + (item.rotation * Math.PI) / 180;
+  return [base[0], base[1] + rotationY, base[2]];
 }
 
 const BOING_DURATION = 0.35;
@@ -77,10 +79,21 @@ function BoingItem({
   return <group ref={groupRef}>{children}</group>;
 }
 
-function SelectionFootprint({ item, invalid }: { item: PlacedItem; invalid: boolean }) {
+function SelectionFootprint({
+  item,
+  invalid,
+  items,
+  dragPreview,
+}: {
+  item: PlacedItem;
+  invalid: boolean;
+  items: readonly PlacedItem[];
+  dragPreview?: { item: PlacedItem } | null;
+}) {
   const catalogItem = catalogById[item.catalogId];
   if (!catalogItem) return null;
-  const [x, y, z] = placementToWorld(item, catalogItem);
+  const resolved = resolveItemTransform(item, items, dragPreview);
+  const [x, y, z] = resolved.position;
   const size = getPlacementSize(catalogItem, item.surface, item.rotation);
   const color = invalid ? '#D96F66' : '#C2BEC8';
   const baseRadius = (Math.max(size.width, size.height) * CELL_SIZE) / 2;
@@ -122,8 +135,56 @@ function SelectionFootprint({ item, invalid }: { item: PlacedItem; invalid: bool
   );
 }
 
+function AttachmentSlotTargets({
+  item,
+  items,
+  draggedItemId,
+}: {
+  item: PlacedItem;
+  items: readonly PlacedItem[];
+  draggedItemId?: string;
+}) {
+  const catalogItem = catalogById[item.catalogId];
+  if (!catalogItem?.attachmentSlots?.length || item.attachment) return null;
+  const rotationY = (item.rotation * Math.PI) / 180;
+  const availableSlots = catalogItem.attachmentSlots.filter((slot) => {
+    const occupant = items.find(
+      (candidate) =>
+        candidate.attachment?.hostItemId === item.id && candidate.attachment.slotId === slot.id,
+    );
+    return !occupant || occupant.id === draggedItemId;
+  });
+  return (
+    <>
+      {availableSlots.map((slot) => {
+        const position = attachmentSlotHitWorldPosition(item, slot);
+        return (
+          <mesh
+            key={`${item.id}-${slot.id}`}
+            position={[position.x, position.y + 0.008, position.z]}
+            rotation={[-Math.PI / 2, 0, rotationY]}
+            userData={{
+              attachmentHostId: item.id,
+              attachmentSlotId: slot.id,
+              placedItemId: item.id,
+            }}
+          >
+            <planeGeometry args={[slot.hitSize.width, slot.hitSize.depth]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+          </mesh>
+        );
+      })}
+    </>
+  );
+}
+
 export function PlacedItems() {
-  const items = useRoomStore((state) => state.placedItems);
+  const allItems = useRoomStore((state) => state.placedItems);
+  const activeBuildingId = useRoomStore((state) => state.activeBuildingId);
+  const items = useMemo(
+    () => allItems.filter((item) => item.buildingId === activeBuildingId),
+    [activeBuildingId, allItems],
+  );
   const selectedItemId = useRoomStore((state) => state.selectedItemId);
   const dragPreview = useRoomStore((state) => state.dragPreview);
   const placementPreview = useRoomStore((state) => state.placementPreview);
@@ -155,16 +216,23 @@ export function PlacedItems() {
         const item = isDragging ? dragPreview.item : storedItem;
         const catalogItem = catalogById[item.catalogId];
         if (!catalogItem) return null;
-        const position = placementToWorld(item, catalogItem);
-        const rotation = modelRotation(item);
+        const resolved = resolveItemTransform(item, items, dragPreview);
+        const position = resolved.position;
+        const rotation = modelRotation(item, resolved.rotationY);
         const selected = selectedItemId === item.id;
         return (
           <group key={item.id}>
             {selected && !isCaptureClean ? (
-              <SelectionFootprint item={item} invalid={isDragging && !dragPreview.valid} />
+              <SelectionFootprint
+                item={item}
+                invalid={isDragging && !dragPreview.valid}
+                items={items}
+                dragPreview={dragPreview}
+              />
             ) : null}
+            <AttachmentSlotTargets item={item} items={items} draggedItemId={dragPreview?.item.id} />
             <group position={position} rotation={rotation}>
-              {item.surface === 'floor' ? <BlobShadow footprint={catalogItem.footprint} /> : null}
+              {item.surface === 'floor' && !resolved.attached ? <BlobShadow footprint={catalogItem.footprint} /> : null}
               <BoingItem
                 animate={boingItemIds.has(item.id)}
                 itemId={item.id}
@@ -190,16 +258,24 @@ export function PlacedItems() {
         const item = placementPreview.item;
         const catalogItem = catalogById[item.catalogId];
         if (!catalogItem) return null;
+        const resolved = resolveItemTransform(item, items, dragPreview);
         return (
           <group key={`placement-${item.id}`} userData={{ placementPreviewId: item.id }}>
-            {!isCaptureClean ? <SelectionFootprint item={item} invalid={!placementPreview.valid} /> : null}
+            {!isCaptureClean ? (
+              <SelectionFootprint
+                item={item}
+                invalid={!placementPreview.valid}
+                items={items}
+                dragPreview={dragPreview}
+              />
+            ) : null}
             <Suspense fallback={null}>
               <CatalogItemModel
                 item={catalogItem}
                 enablePointLight={false}
-                position={placementToWorld(item, catalogItem)}
+                position={resolved.position}
                 renderOrder={2}
-                rotation={modelRotation(item)}
+                rotation={modelRotation(item, resolved.rotationY)}
               />
             </Suspense>
           </group>
