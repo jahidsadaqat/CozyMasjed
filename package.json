@@ -1,5 +1,5 @@
 {
-  "name": "deen-rooms",
+  "name": "cozy-masjid",
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
@@ -42,6 +42,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22.13.0"
   },
   "private": true
 }

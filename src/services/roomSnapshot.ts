@@ -26,10 +26,10 @@ async function exportWebSnapshot(snapshot: GLSnapshot): Promise<RoomCaptureResul
   }
   if (!blob) throw new Error('The browser could not create the room image.');
 
-  const file = new File([blob], `deen-room-${Date.now()}.png`, { type: 'image/png' });
+  const file = new File([blob], `cozy-masjid-room-${Date.now()}.png`, { type: 'image/png' });
   const shareData: ShareData = {
-    title: 'My Deen Room',
-    text: 'A peaceful room made in Deen Rooms',
+    title: 'My Cozy Masjid',
+    text: 'A peaceful room made in Cozy Masjid',
     files: [file],
   };
   const mobilePointer = window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;

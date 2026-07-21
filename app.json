@@ -1,15 +1,19 @@
 {
   "expo": {
-    "name": "Deen Rooms",
-    "slug": "deen-rooms",
+    "name": "Cozy Masjid",
+    "slug": "cozy-masjid",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F4D8B4",
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.deenrooms.app"
+      "supportsTablet": false,
+      "bundleIdentifier": "com.cozymasjid.app",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +23,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.deenrooms.app"
+      "package": "com.cozymasjid.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,7 +36,7 @@
         "expo-media-library",
         {
           "photosPermission": false,
-          "savePhotosPermission": "Allow Deen Rooms to save pictures of your rooms.",
+          "savePhotosPermission": "Allow Cozy Masjid to save room snapshots to your Photos library.",
           "granularPermissions": [
             "photo"
           ],

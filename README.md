@@ -1,6 +1,6 @@
-# Deen Rooms
+# Cozy Masjid
 
-Deen Rooms is a cozy, iOS-first 3D room decorator built with Expo SDK 57, React Native, Three.js and React Three Fiber. The MVP lets a player style a procedural prayer room, place Islamic decor on an 8×8 grid or either wall, edit objects, undo/redo, and save or share a room image.
+Cozy Masjid is a cozy, iOS-first 3D room decorator built with Expo SDK 57, React Native, Three.js and React Three Fiber. The MVP lets a player style a procedural prayer room, place Islamic decor on an 8×8 grid or either wall, edit objects, undo/redo, and save or share a room image.
 
 ## Run locally
 
