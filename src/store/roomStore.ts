@@ -369,9 +369,14 @@ export const useRoomStore = create<RoomState>((set, get) => {
       ) {
         return;
       }
-      const valid = isValidPlacement(candidate, state.placedItems);
       const movedToNewAnchor =
         placementSoundKey(candidate) !== placementSoundKey(state.placementPreview.item);
+      // Native pan events can arrive faster than the display refresh rate.
+      // The editor uses a snapped grid, so an unchanged anchor is also an
+      // unchanged preview. Avoid revalidating and reconciling every 3D model.
+      if (!movedToNewAnchor && state.placementPreview.valid) return;
+      const valid = isValidPlacement(candidate, state.placedItems);
+      if (!movedToNewAnchor && valid === state.placementPreview.valid) return;
       set({
         placementPreview: {
           item: { ...candidate, attachment: candidate.attachment ? { ...candidate.attachment } : undefined },
@@ -384,7 +389,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     },
     invalidatePlacementPreview: () =>
       set((state) =>
-        state.placementPreview
+        state.placementPreview?.valid
           ? { placementPreview: { ...state.placementPreview, valid: false } }
           : state,
       ),
@@ -466,10 +471,12 @@ export const useRoomStore = create<RoomState>((set, get) => {
     previewMove: (candidate) => {
       const state = get();
       if (!state.draggingItemId || candidate.id !== state.draggingItemId) return;
-      const valid = isValidPlacement(candidate, state.placedItems, state.draggingItemId);
       const movedToNewAnchor =
         Boolean(state.dragPreview) &&
         placementSoundKey(candidate) !== placementSoundKey(state.dragPreview!.item);
+      if (!movedToNewAnchor && state.dragPreview?.valid) return;
+      const valid = isValidPlacement(candidate, state.placedItems, state.draggingItemId);
+      if (!movedToNewAnchor && valid === state.dragPreview?.valid) return;
       set({
         dragPreview: {
           item: { ...candidate, attachment: candidate.attachment ? { ...candidate.attachment } : undefined },
@@ -479,7 +486,11 @@ export const useRoomStore = create<RoomState>((set, get) => {
       if (movedToNewAnchor) emitInteractionFeedback('move');
     },
     invalidateDragPreview: () =>
-      set((state) => (state.dragPreview ? { dragPreview: { ...state.dragPreview, valid: false } } : state)),
+      set((state) =>
+        state.dragPreview?.valid
+          ? { dragPreview: { ...state.dragPreview, valid: false } }
+          : state,
+      ),
     finishDrag: () => {
       const state = get();
       if (!state.dragPreview || !state.draggingItemId) return false;

@@ -7,6 +7,7 @@ import { attachmentSlotHitWorldPosition, resolveItemTransform } from '../../doma
 import { CELL_SIZE, getPlacementGrid, getPlacementSize, type PlacedItem } from '../../domain/grid';
 import { useRoomStore } from '../../store/roomStore';
 import { CatalogItemModel } from '../models/CatalogItemModel';
+import { configurePlacementRaycastTarget } from './editorRaycastLayers';
 
 function modelRotation(item: PlacedItem, resolvedRotationY?: number): [number, number, number] {
   const catalogItem = catalogById[item.catalogId];
@@ -169,6 +170,7 @@ function AttachmentSlotTargets({
         return (
           <mesh
             key={`${item.id}-${slot.id}`}
+            ref={configurePlacementRaycastTarget}
             position={[position.x, position.y + 0.008, position.z]}
             rotation={[-Math.PI / 2, 0, rotationY]}
             userData={{

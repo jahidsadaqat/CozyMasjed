@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import type { BuildingId } from '../../domain/buildings';
 import { getPlacementZones, type PlacementZone } from '../../domain/grid';
+import { configurePlacementRaycastTarget } from './editorRaycastLayers';
 
 function InvisibleTargetMaterial() {
   return (
@@ -28,6 +29,7 @@ function FloorTarget({ zone }: { zone: PlacementZone }) {
   const rowSize = zone.rowSize ?? zone.cellSize;
   return (
     <mesh
+      ref={configurePlacementRaycastTarget}
       position={[
         zone.originX + (zone.columns * zone.cellSize) / 2,
         zone.originY - 0.005,
@@ -113,6 +115,7 @@ function MergedWallTarget({
 
   return (
     <mesh
+      ref={configurePlacementRaycastTarget}
       geometry={geometry}
       userData={{
         ...placementTags(zone),

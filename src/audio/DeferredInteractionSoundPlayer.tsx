@@ -8,9 +8,17 @@ import {
   useState,
 } from 'react';
 import { Platform } from 'react-native';
-import { subscribeToInteractionFeedback } from '../feedback/interactionFeedbackEvents';
+import {
+  subscribeToInteractionFeedback,
+  type InteractionFeedbackSignal,
+} from '../feedback/interactionFeedbackEvents';
 
 type SoundPlayerProps = {
+  enabled: boolean;
+  initialSignal: InteractionFeedbackSignal | null;
+};
+
+type DeferredSoundPlayerProps = {
   enabled: boolean;
 };
 
@@ -44,8 +52,9 @@ class SoundBoundary extends Component<SoundBoundaryProps, SoundBoundaryState> {
  * Audio is intentionally loaded only after the first sound-producing gesture.
  * A missing or failing native audio module must never prevent the room from opening.
  */
-export function DeferredInteractionSoundPlayer({ enabled }: SoundPlayerProps) {
+export function DeferredInteractionSoundPlayer({ enabled }: DeferredSoundPlayerProps) {
   const [SoundPlayer, setSoundPlayer] = useState<ComponentType<SoundPlayerProps> | null>(null);
+  const [initialSignal, setInitialSignal] = useState<InteractionFeedbackSignal | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
@@ -57,6 +66,7 @@ export function DeferredInteractionSoundPlayer({ enabled }: SoundPlayerProps) {
     return subscribeToInteractionFeedback((signal) => {
       if (!signal.sound || loading) return;
       loading = true;
+      setInitialSignal(signal);
 
       if (Platform.OS !== 'web' && !requireOptionalNativeModule('ExpoAudio')) {
         if (!cancelled) setUnavailable(true);
@@ -80,7 +90,7 @@ export function DeferredInteractionSoundPlayer({ enabled }: SoundPlayerProps) {
 
   return (
     <SoundBoundary>
-      <SoundPlayer enabled />
+      <SoundPlayer enabled initialSignal={initialSignal} />
     </SoundBoundary>
   );
 }

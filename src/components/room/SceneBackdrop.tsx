@@ -1,11 +1,13 @@
 import { useThree } from '@react-three/fiber/native';
 import { Asset } from 'expo-asset';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
 import * as THREE from 'three';
 import type { WeatherMode } from '../../domain/weather';
 import { weatherVisualProfiles } from '../../domain/weather';
 import { useRoomStore } from '../../store/roomStore';
 import { getBackgroundOption, type BackgroundId } from '../../theme/backgrounds';
+import { cacheBundledImage } from '../../services/nativeImageCache';
 
 const BACKGROUND_ASPECT = 941 / 1672;
 const ignoreRaycast = () => undefined;
@@ -128,8 +130,17 @@ function IllustratedBackdrop({
       try {
         const asset = await Asset.fromModule(source).downloadAsync();
         if (cancelled) return;
-        const uri = asset.localUri ?? asset.uri;
-        if (!uri) throw new Error('The background asset has no readable URI.');
+        const resolvedUri = asset.localUri ?? asset.uri;
+        if (!resolvedUri) throw new Error('The background asset has no readable URI.');
+        const uri =
+          Platform.OS === 'web'
+            ? resolvedUri
+            : await cacheBundledImage(
+                resolvedUri,
+                `background-${asset.hash ?? backgroundId}`,
+                asset.type || 'png',
+              );
+        if (cancelled) return;
 
         ownedTexture = new THREE.TextureLoader().load(
           uri,

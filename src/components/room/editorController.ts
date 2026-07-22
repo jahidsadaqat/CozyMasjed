@@ -31,6 +31,7 @@ import {
   type InteractionFeedbackOptions,
 } from '../../feedback/interactionFeedbackEvents';
 import { useRoomStore } from '../../store/roomStore';
+import { PLACEMENT_TARGET_LAYER, SCENE_INTERACTION_LAYER } from './editorRaycastLayers';
 
 let rootState: RootState | null = null;
 let pinchStartZoom = DEFAULT_CAMERA_ZOOM;
@@ -101,11 +102,24 @@ function attachmentSlotHit(
   return null;
 }
 
-function intersectionsAt(x: number, y: number) {
+function intersectionsAt(x: number, y: number, layer = SCENE_INTERACTION_LAYER) {
   if (!rootState) return [];
   rootState.pointer.set((x / rootState.size.width) * 2 - 1, -(y / rootState.size.height) * 2 + 1);
   rootState.raycaster.setFromCamera(rootState.pointer, rootState.camera);
-  return rootState.raycaster.intersectObjects(rootState.scene.children, true);
+  const previousLayerMask = rootState.raycaster.layers.mask;
+  rootState.raycaster.layers.set(layer);
+  try {
+    return rootState.raycaster.intersectObjects(rootState.scene.children, true);
+  } finally {
+    // R3F owns this shared raycaster. Never leak the placement-only layer into
+    // its next pointer event, otherwise ordinary model selection can appear to
+    // stop working after a drag on native.
+    rootState.raycaster.layers.mask = previousLayerMask;
+  }
+}
+
+function placementIntersectionsAt(x: number, y: number) {
+  return intersectionsAt(x, y, PLACEMENT_TARGET_LAYER);
 }
 
 function findPlacedId(hits: THREE.Intersection[]) {
@@ -171,7 +185,7 @@ function updatePlacementFromPointer(
   const catalogItem = store.placingCatalogId ? catalogById[store.placingCatalogId] : null;
   if (!preview || !catalogItem) return false;
 
-  const hits = intersectionsAt(x, y);
+  const hits = placementIntersectionsAt(x, y);
   if (catalogItem.attachmentRole) {
     const slotHit = attachmentSlotHit(hits, preview.item);
     if (slotHit) {
@@ -289,7 +303,8 @@ function beginItemDrag(placedId: string, x: number, y: number) {
     return true;
   }
 
-  const hit = surfaceHit(hits, [placed.surface], placed.level, placed.zoneId);
+  const targetHits = placementIntersectionsAt(x, y);
+  const hit = surfaceHit(targetHits, [placed.surface], placed.level, placed.zoneId);
   if (!hit) return false;
   const [worldX, worldY, worldZ] = placementToWorld(placed, catalogItem);
   dragGrabOffset = hit.point.clone().sub(new THREE.Vector3(worldX, worldY, worldZ));
@@ -306,7 +321,7 @@ function updateItemDrag(x: number, y: number) {
   if (!preview || !activeDragSurface) return;
   const catalogItem = catalogById[preview.item.catalogId];
   if (!catalogItem) return;
-  const hits = intersectionsAt(x, y);
+  const hits = placementIntersectionsAt(x, y);
   const sourceItem = store.placedItems.find((item) => item.id === preview.item.id) ?? preview.item;
   if (catalogItem.attachmentRole) {
     const slotHit = attachmentSlotHit(hits, preview.item, preview.item.id);

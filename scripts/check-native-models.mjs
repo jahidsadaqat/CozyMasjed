@@ -4,14 +4,18 @@ import { fileURLToPath } from 'node:url';
 
 const GLB_MAGIC = 0x46546c67;
 const JSON_CHUNK = 0x4e4f534a;
+const BIN_CHUNK = 0x004e4942;
 const MESHOPT_EXTENSION = 'EXT_meshopt_compression';
+// Expo GL 57 uploads native file:// textures through stb_image, which supports
+// PNG and JPEG but not WebP. Keeping this allow-list strict prevents future
+// optimized assets from silently rendering white in TestFlight.
+const NATIVE_TEXTURE_TYPES = new Set(['image/jpeg', 'image/png']);
 const MEBIBYTE = 1024 * 1024;
 const scriptRoot = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptRoot, '..');
-const modelRoot = path.resolve(
-  projectRoot,
-  'assets/models/optimized',
-);
+const modelRoot = process.argv[2]
+  ? path.resolve(projectRoot, process.argv[2])
+  : path.resolve(projectRoot, 'assets/models/optimized');
 const sourceRoot = path.resolve(projectRoot, 'src');
 const modelLoaderPath = path.resolve(
   sourceRoot,
@@ -141,13 +145,25 @@ async function checkNativeModelLoader(failures) {
     )
   ) {
     failures.push(
-      `${nativeLoaderRelativePath}: use Three's version-matched GLTFLoader for native WebP textures`,
+      `${nativeLoaderRelativePath}: use Three's version-matched GLTFLoader for native model textures`,
     );
   }
 
   if (/from\s+['"]three-stdlib['"]/u.test(nativeLoaderSource)) {
     failures.push(
       `${nativeLoaderRelativePath}: three-stdlib's WebP feature detection requires a browser Image global`,
+    );
+  }
+
+  if (!/\bcacheEmbeddedModelTexture\s*\(/u.test(nativeLoaderSource)) {
+    failures.push(
+      `${nativeLoaderRelativePath}: embedded GLB images must be extracted before iOS GLTFLoader creates blob URLs`,
+    );
+  }
+
+  if (!/delete\s+image\.bufferView/u.test(nativeLoaderSource)) {
+    failures.push(
+      `${nativeLoaderRelativePath}: cached native textures must replace their embedded bufferView references`,
     );
   }
 
@@ -164,7 +180,7 @@ async function checkNativeModelLoader(failures) {
   }
 }
 
-function readGlbJson(bytes, relativePath) {
+function readGlb(bytes, relativePath) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
   if (bytes.byteLength < 20 || view.getUint32(0, true) !== GLB_MAGIC) {
@@ -177,6 +193,8 @@ function readGlbJson(bytes, relativePath) {
   }
 
   let offset = 12;
+  let json = null;
+  let binary = null;
   while (offset + 8 <= bytes.byteLength) {
     const chunkLength = view.getUint32(offset, true);
     const chunkType = view.getUint32(offset + 4, true);
@@ -188,28 +206,78 @@ function readGlbJson(bytes, relativePath) {
     }
 
     if (chunkType === JSON_CHUNK) {
-      const json = new TextDecoder()
+      const jsonText = new TextDecoder()
         .decode(bytes.subarray(chunkStart, chunkEnd))
         .replace(/[\u0000\u0020]+$/u, '');
-      return JSON.parse(json);
+      json = JSON.parse(jsonText);
+    } else if (chunkType === BIN_CHUNK) {
+      binary = bytes.subarray(chunkStart, chunkEnd);
     }
 
     offset = chunkEnd;
   }
 
-  throw new Error(`${relativePath}: missing JSON chunk`);
+  if (!json) throw new Error(`${relativePath}: missing JSON chunk`);
+  return { json, binary };
+}
+
+function readImageSize(bytes, mimeType, relativePath, imageIndex) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (mimeType === 'image/png') {
+    if (
+      bytes.byteLength < 24 ||
+      view.getUint32(0, false) !== 0x89504e47 ||
+      view.getUint32(4, false) !== 0x0d0a1a0a
+    ) {
+      throw new Error(`${relativePath}: image ${imageIndex} is not a valid PNG`);
+    }
+    return [view.getUint32(16, false), view.getUint32(20, false)];
+  }
+
+  if (mimeType === 'image/jpeg') {
+    if (bytes.byteLength < 4 || view.getUint16(0, false) !== 0xffd8) {
+      throw new Error(`${relativePath}: image ${imageIndex} is not a valid JPEG`);
+    }
+
+    const startOfFrameMarkers = new Set([
+      0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7,
+      0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
+    ]);
+    let offset = 2;
+    while (offset + 8 < bytes.byteLength) {
+      if (bytes[offset] !== 0xff) {
+        offset += 1;
+        continue;
+      }
+      const marker = bytes[offset + 1];
+      if (startOfFrameMarkers.has(marker)) {
+        return [view.getUint16(offset + 7, false), view.getUint16(offset + 5, false)];
+      }
+      if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7)) {
+        offset += 2;
+        continue;
+      }
+      const segmentLength = view.getUint16(offset + 2, false);
+      if (segmentLength < 2) break;
+      offset += 2 + segmentLength;
+    }
+    throw new Error(`${relativePath}: image ${imageIndex} has no JPEG size marker`);
+  }
+
+  throw new Error(`${relativePath}: image ${imageIndex} has unsupported MIME type ${mimeType}`);
 }
 
 const files = (await listModels(modelRoot)).sort();
 const failures = [];
 let totalBytes = 0;
+const textureTypeCounts = { jpeg: 0, png: 0 };
 
 await checkNativeModelLoader(failures);
 
 for (const file of files) {
   const relativePath = path.relative(modelRoot, file);
   const bytes = await fs.readFile(file);
-  const json = readGlbJson(bytes, relativePath);
+  const { json, binary } = readGlb(bytes, relativePath);
   const requiredExtensions = json.extensionsRequired ?? [];
   const budget = relativePath.startsWith(`buildings${path.sep}`)
     ? 4 * MEBIBYTE
@@ -237,6 +305,41 @@ for (const file of files) {
         `${relativePath}: image ${index} is external; native models must embed textures as buffer views`,
       );
     }
+
+    if (!NATIVE_TEXTURE_TYPES.has(image.mimeType)) {
+      failures.push(
+        `${relativePath}: image ${index} has unsupported native texture type ${String(image.mimeType)}; Expo GL 57 requires embedded PNG or JPEG`,
+      );
+      continue;
+    }
+    if (image.mimeType === 'image/jpeg') textureTypeCounts.jpeg += 1;
+    if (image.mimeType === 'image/png') textureTypeCounts.png += 1;
+
+    const bufferView = json.bufferViews?.[image.bufferView];
+    if (!binary || !Number.isInteger(image.bufferView) || !bufferView) {
+      failures.push(`${relativePath}: image ${index} is not embedded in the GLB BIN chunk`);
+      continue;
+    }
+    const byteOffset = bufferView.byteOffset ?? 0;
+    const byteLength = bufferView.byteLength ?? 0;
+    if ((bufferView.buffer ?? 0) !== 0 || byteOffset < 0 || byteLength <= 0 || byteOffset + byteLength > binary.byteLength) {
+      failures.push(`${relativePath}: image ${index} has an invalid embedded buffer view`);
+      continue;
+    }
+
+    try {
+      const [width, height] = readImageSize(
+        binary.subarray(byteOffset, byteOffset + byteLength),
+        image.mimeType,
+        relativePath,
+        index,
+      );
+      if (width > 1024 || height > 1024) {
+        failures.push(`${relativePath}: image ${index} is ${width}x${height}; native textures must not exceed 1024x1024`);
+      }
+    } catch (error) {
+      failures.push(error instanceof Error ? error.message : String(error));
+    }
   }
 
   if (bytes.byteLength > budget) {
@@ -257,5 +360,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Native model preflight passed: ${files.length} GLBs, ${(totalBytes / MEBIBYTE).toFixed(2)} MB, exact-byte native loader and embedded textures verified, no runtime Meshopt.`,
+  `Native model preflight passed: ${files.length} GLBs, ${(totalBytes / MEBIBYTE).toFixed(2)} MB, ${textureTypeCounts.jpeg} JPEG + ${textureTypeCounts.png} PNG textures at <=1024px, exact-byte native loader, no runtime Meshopt.`,
 );

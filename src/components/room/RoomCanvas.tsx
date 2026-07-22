@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber/native';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_ZOOM } from '../../domain/camera';
@@ -20,11 +20,46 @@ import {
 export function RoomCanvas() {
   const [appState, setAppState] = useState(AppState.currentState);
   const renderContinuously = appState === 'active' || appState === 'unknown';
+  const pendingPanRef = useRef<{ x: number; y: number; translationX: number } | null>(null);
+  const panFrameRef = useRef<number | null>(null);
+
+  const flushPanUpdate = useCallback(() => {
+    if (panFrameRef.current !== null) {
+      cancelAnimationFrame(panFrameRef.current);
+      panFrameRef.current = null;
+    }
+    const pending = pendingPanRef.current;
+    pendingPanRef.current = null;
+    if (pending) updateEditorPan(pending.x, pending.y, pending.translationX);
+  }, []);
+
+  const cancelPanUpdate = useCallback(() => {
+    if (panFrameRef.current !== null) cancelAnimationFrame(panFrameRef.current);
+    panFrameRef.current = null;
+    pendingPanRef.current = null;
+  }, []);
+
+  const queuePanUpdate = useCallback((x: number, y: number, translationX: number) => {
+    pendingPanRef.current = { x, y, translationX };
+    if (panFrameRef.current !== null) return;
+    // ProMotion can deliver touch samples faster than React/Three can present
+    // frames. Process the newest sample once per frame instead of building a
+    // delayed queue of raycasts and React reconciliations on the JS thread.
+    panFrameRef.current = requestAnimationFrame(() => {
+      panFrameRef.current = null;
+      const pending = pendingPanRef.current;
+      pendingPanRef.current = null;
+      if (pending) updateEditorPan(pending.x, pending.y, pending.translationX);
+    });
+  }, []);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', setAppState);
-    return () => subscription.remove();
-  }, []);
+    return () => {
+      subscription.remove();
+      cancelPanUpdate();
+    };
+  }, [cancelPanUpdate]);
 
   const gesture = useMemo(() => {
     const tap = Gesture.Tap()
@@ -36,14 +71,15 @@ export function RoomCanvas() {
     const pan = Gesture.Pan()
       .minPointers(1)
       .maxPointers(1)
-      .minDistance(8)
+      .minDistance(4)
       .runOnJS(true)
       // Capture the exact touch-down point. Waiting until activation can move a
       // finger beyond the bounds of small models such as the fanous lantern.
       .onBegin((event) => prepareEditorPan(event.x, event.y))
       .onStart(() => activateEditorPan())
-      .onUpdate((event) => updateEditorPan(event.x, event.y, event.translationX))
-      .onFinalize((event, success) =>
+      .onUpdate((event) => queuePanUpdate(event.x, event.y, event.translationX))
+      .onFinalize((event, success) => {
+        flushPanUpdate();
         finishEditorPan(
           success,
           event.x,
@@ -51,15 +87,18 @@ export function RoomCanvas() {
           event.translationX,
           event.translationY,
           event.velocityX,
-        ),
-      );
+        );
+      });
     const pinch = Gesture.Pinch()
       .runOnJS(true)
-      .onStart((event) => beginEditorPinch(event.focalX, event.focalY))
+      .onStart((event) => {
+        cancelPanUpdate();
+        beginEditorPinch(event.focalX, event.focalY);
+      })
       .onUpdate((event) => updateEditorPinch(event.scale, event.focalX, event.focalY))
       .onFinalize(() => finishEditorPinch());
     return Gesture.Simultaneous(Gesture.Exclusive(pan, tap), pinch);
-  }, []);
+  }, [cancelPanUpdate, flushPanUpdate, queuePanUpdate]);
 
   return (
     <GestureDetector gesture={gesture}>
