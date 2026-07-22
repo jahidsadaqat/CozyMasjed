@@ -1,12 +1,24 @@
 import type { BuildingId } from './buildings';
-import { DEFAULT_PLACEMENT_LEVEL, type PlacedItem } from './grid';
+import {
+  DEFAULT_PLACEMENT_LEVEL,
+  getDefaultPlacementZoneId,
+  type PlacedItem,
+} from './grid';
 
-export const STARTER_LAYOUT_REVISION = 4;
+export const STARTER_LAYOUT_REVISION = 5;
 
-type StarterPlacedItem = Omit<PlacedItem, 'level'> & { level?: PlacedItem['level'] };
+type StarterPlacedItem = Omit<PlacedItem, 'level' | 'zoneId'> & {
+  level?: PlacedItem['level'];
+  zoneId?: PlacedItem['zoneId'];
+};
 
-function withDefaultLevel(items: readonly StarterPlacedItem[]): readonly PlacedItem[] {
-  return items.map((item) => ({ ...item, level: item.level ?? DEFAULT_PLACEMENT_LEVEL }));
+function withPlacementDefaults(items: readonly StarterPlacedItem[]): readonly PlacedItem[] {
+  return items.map((item) => {
+    const level = item.level ?? DEFAULT_PLACEMENT_LEVEL;
+    const zoneId = item.zoneId ?? getDefaultPlacementZoneId(item.buildingId, level, item.surface);
+    if (!zoneId) throw new Error(`Missing placement zone for starter item ${item.id}.`);
+    return { ...item, level, zoneId };
+  });
 }
 
 const cozyMasjid: readonly StarterPlacedItem[] = [
@@ -49,7 +61,7 @@ const cozyMasjid: readonly StarterPlacedItem[] = [
 
 const archedAtrium: readonly StarterPlacedItem[] = [
   { id: 'starter-v1-atrium-floor-lamp', buildingId: 'arched-atrium', catalogId: 'imported-model-40', gridX: 7, gridY: 3, rotation: 0, surface: 'floor' },
-  { id: 'starter-v1-atrium-sconce', buildingId: 'arched-atrium', catalogId: 'imported-model-39', gridX: 7, gridY: 1, rotation: 0, surface: 'wallR' },
+  { id: 'starter-v1-atrium-sconce', buildingId: 'arched-atrium', catalogId: 'imported-model-39', gridX: 5, gridY: 1, rotation: 0, surface: 'wallR' },
   { id: 'starter-v1-atrium-fanous', buildingId: 'arched-atrium', catalogId: 'fanous-lantern', gridX: 2, gridY: 3, rotation: 0, surface: 'floor' },
   { id: 'starter-v1-atrium-prayer-rug', buildingId: 'arched-atrium', catalogId: 'imported-model-78', gridX: 3, gridY: 1, rotation: 90, surface: 'floor' },
   { id: 'starter-v1-atrium-quran', buildingId: 'arched-atrium', catalogId: 'imported-model-98', gridX: 5, gridY: 2, rotation: 90, surface: 'floor' },
@@ -72,6 +84,6 @@ const archedAtrium: readonly StarterPlacedItem[] = [
 ];
 
 export const starterLayouts: Readonly<Record<BuildingId, readonly PlacedItem[]>> = {
-  'cozy-masjid': withDefaultLevel(cozyMasjid),
-  'arched-atrium': withDefaultLevel(archedAtrium),
+  'cozy-masjid': withPlacementDefaults(cozyMasjid),
+  'arched-atrium': withPlacementDefaults(archedAtrium),
 };

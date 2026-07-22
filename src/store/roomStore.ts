@@ -1,4 +1,8 @@
 import { create } from 'zustand';
+import {
+  emitInteractionFeedback,
+  type InteractionFeedbackOptions,
+} from '../feedback/interactionFeedbackEvents';
 import { catalogById } from '../catalog/catalog';
 import type { PlacementSurface } from '../catalog/types';
 import { CAMERA_TARGET, DEFAULT_CAMERA_YAW, DEFAULT_CAMERA_ZOOM } from '../domain/camera';
@@ -6,14 +10,15 @@ import { canAttachToSlot, getAttachmentSlot } from '../domain/attachments';
 import { defaultBuildingId, type BuildingId } from '../domain/buildings';
 import {
   DEFAULT_PLACEMENT_LEVEL,
-  getPlacementGrid,
-  getPlacementLevels,
+  getDefaultPlacementZoneId,
   getPlacementSize,
+  getPlacementZones,
   isWithinGrid,
   nearbyAnchors,
   placementsOverlap,
   rotateAroundCenter,
   type PlacementLevel,
+  type PlacementZoneId,
   type PlacedItem,
   type QuarterTurn,
 } from '../domain/grid';
@@ -81,7 +86,10 @@ export type RoomState = RoomSnapshot & {
   setWeather: (weather: WeatherMode) => void;
   startPlacing: (catalogId: string) => void;
   cancelPlacement: () => void;
-  previewPlacement: (candidate: PlacedItem) => void;
+  previewPlacement: (
+    candidate: PlacedItem,
+    moveFeedback?: InteractionFeedbackOptions | false,
+  ) => void;
   invalidatePlacementPreview: () => void;
   commitPlacementPreview: () => boolean;
   selectItem: (id: string | null) => void;
@@ -91,6 +99,7 @@ export type RoomState = RoomSnapshot & {
     gridY: number,
     surface: PlacementSurface,
     level?: PlacementLevel,
+    zoneId?: PlacementZoneId,
   ) => boolean;
   beginDrag: (id: string) => void;
   previewMove: (candidate: PlacedItem) => void;
@@ -170,6 +179,7 @@ export function roomSnapshotsEqual(a: RoomSnapshot, b: RoomSnapshot) {
       item.rotation === other.rotation &&
       item.surface === other.surface &&
       item.level === other.level &&
+      item.zoneId === other.zoneId &&
       item.attachment?.hostItemId === other.attachment?.hostItemId &&
       item.attachment?.slotId === other.attachment?.slotId
     );
@@ -210,33 +220,42 @@ function makeInitialPlacementPreview(
   const id = makePlacedId(catalogId);
   let fallback: PlacedItem | null = null;
 
-  for (const level of getPlacementLevels(buildingId)) {
-    for (const surface of catalogItem.allowedSurfaces) {
-      const grid = getPlacementGrid(buildingId, level, surface);
-      if (!grid) continue;
-      const size = getPlacementSize(catalogItem, surface, 0);
-      const maxX = grid.columns - size.width;
-      const maxY = grid.rows - size.height;
-      if (maxX < 0 || maxY < 0) continue;
+  for (const zone of getPlacementZones(buildingId)) {
+    if (!catalogItem.allowedSurfaces.includes(zone.surface)) continue;
+    const size = getPlacementSize(catalogItem, zone.surface, 0);
+    const maxX = zone.columns - size.width;
+    const maxY = zone.rows - size.height;
+    if (maxX < 0 || maxY < 0) continue;
 
-      const centerX = maxX / 2;
-      const centerY = maxY / 2;
-      const candidates: PlacedItem[] = [];
-      for (let gridY = 0; gridY <= maxY; gridY += 1) {
-        for (let gridX = 0; gridX <= maxX; gridX += 1) {
-          candidates.push({ id, buildingId, catalogId, gridX, gridY, rotation: 0, surface, level });
-        }
+    const centerX = maxX / 2;
+    const centerY = maxY / 2;
+    const candidates: PlacedItem[] = [];
+    for (let gridY = 0; gridY <= maxY; gridY += 1) {
+      for (let gridX = 0; gridX <= maxX; gridX += 1) {
+        candidates.push({
+          id,
+          buildingId,
+          catalogId,
+          gridX,
+          gridY,
+          rotation: 0,
+          surface: zone.surface,
+          level: zone.level,
+          zoneId: zone.id,
+        });
       }
-      candidates.sort((a, b) => {
-        const distanceA = (a.gridX - centerX) ** 2 + (a.gridY - centerY) ** 2;
-        const distanceB = (b.gridX - centerX) ** 2 + (b.gridY - centerY) ** 2;
-        return distanceA - distanceB;
-      });
-
-      fallback ??= candidates[0] ?? null;
-      const validCandidate = candidates.find((candidate) => isValidPlacement(candidate, placedItems));
-      if (validCandidate) return { item: validCandidate, valid: true };
     }
+    candidates.sort((a, b) => {
+      const distanceA = (a.gridX - centerX) ** 2 + (a.gridY - centerY) ** 2;
+      const distanceB = (b.gridX - centerX) ** 2 + (b.gridY - centerY) ** 2;
+      return distanceA - distanceB;
+    });
+
+    fallback ??= candidates[0] ?? null;
+    const validCandidate = candidates.find((candidate) =>
+      isValidPlacement(candidate, placedItems),
+    );
+    if (validCandidate) return { item: validCandidate, valid: true };
   }
 
   return fallback ? { item: fallback, valid: false } : null;
@@ -244,6 +263,20 @@ function makeInitialPlacementPreview(
 
 function nextQuarterTurn(rotation: QuarterTurn, direction: 1 | -1): QuarterTurn {
   return ((rotation + direction * 90 + 360) % 360) as QuarterTurn;
+}
+
+function placementSoundKey(item: PlacedItem) {
+  return [
+    item.buildingId,
+    item.zoneId,
+    item.surface,
+    item.level,
+    item.gridX,
+    item.gridY,
+    item.rotation,
+    item.attachment?.hostItemId ?? '',
+    item.attachment?.slotId ?? '',
+  ].join(':');
 }
 
 const clearEditorPatch: TransientPatch = {
@@ -327,7 +360,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
       });
     },
     cancelPlacement: () => set({ placingCatalogId: null, placementPreview: null }),
-    previewPlacement: (candidate) => {
+    previewPlacement: (candidate, moveFeedback) => {
       const state = get();
       if (
         !state.placementPreview ||
@@ -336,12 +369,18 @@ export const useRoomStore = create<RoomState>((set, get) => {
       ) {
         return;
       }
+      const valid = isValidPlacement(candidate, state.placedItems);
+      const movedToNewAnchor =
+        placementSoundKey(candidate) !== placementSoundKey(state.placementPreview.item);
       set({
         placementPreview: {
           item: { ...candidate, attachment: candidate.attachment ? { ...candidate.attachment } : undefined },
-          valid: isValidPlacement(candidate, state.placedItems),
+          valid,
         },
       });
+      if (moveFeedback !== false && movedToNewAnchor) {
+        emitInteractionFeedback('move', moveFeedback);
+      }
     },
     invalidatePlacementPreview: () =>
       set((state) =>
@@ -358,10 +397,12 @@ export const useRoomStore = create<RoomState>((set, get) => {
           ? { ...state.placementPreview.item.attachment }
           : undefined,
       };
-      return commitRoom(
+      const committed = commitRoom(
         { ...readRoomSnapshot(state), placedItems: [...clonePlacedItems(state.placedItems), candidate] },
         { selectedItemId: candidate.id, placingCatalogId: null, placementPreview: null },
       );
+      if (committed) emitInteractionFeedback('place');
+      return committed;
     },
     selectItem: (selectedItemId) => {
       const state = get();
@@ -373,8 +414,18 @@ export const useRoomStore = create<RoomState>((set, get) => {
       ) return;
       set({ selectedItemId, placingCatalogId: null, placementPreview: null, draggingItemId: null, dragPreview: null });
     },
-    placeCatalogItem: (catalogId, gridX, gridY, surface, level = DEFAULT_PLACEMENT_LEVEL) => {
+    placeCatalogItem: (
+      catalogId,
+      gridX,
+      gridY,
+      surface,
+      level = DEFAULT_PLACEMENT_LEVEL,
+      requestedZoneId,
+    ) => {
       const state = get();
+      const zoneId =
+        requestedZoneId ?? getDefaultPlacementZoneId(state.activeBuildingId, level, surface);
+      if (!zoneId) return false;
       const candidate: PlacedItem = {
         id: makePlacedId(catalogId),
         buildingId: state.activeBuildingId,
@@ -384,12 +435,15 @@ export const useRoomStore = create<RoomState>((set, get) => {
         rotation: 0,
         surface,
         level,
+        zoneId,
       };
       if (!isValidPlacement(candidate, state.placedItems)) return false;
-      return commitRoom(
+      const committed = commitRoom(
         { ...readRoomSnapshot(state), placedItems: [...clonePlacedItems(state.placedItems), candidate] },
         { selectedItemId: candidate.id, placingCatalogId: null, placementPreview: null },
       );
+      if (committed) emitInteractionFeedback('place');
+      return committed;
     },
     beginDrag: (id) => {
       const state = get();
@@ -407,16 +461,22 @@ export const useRoomStore = create<RoomState>((set, get) => {
         placingCatalogId: null,
         placementPreview: null,
       });
+      emitInteractionFeedback('dragStart');
     },
     previewMove: (candidate) => {
       const state = get();
       if (!state.draggingItemId || candidate.id !== state.draggingItemId) return;
+      const valid = isValidPlacement(candidate, state.placedItems, state.draggingItemId);
+      const movedToNewAnchor =
+        Boolean(state.dragPreview) &&
+        placementSoundKey(candidate) !== placementSoundKey(state.dragPreview!.item);
       set({
         dragPreview: {
           item: { ...candidate, attachment: candidate.attachment ? { ...candidate.attachment } : undefined },
-          valid: isValidPlacement(candidate, state.placedItems, state.draggingItemId),
+          valid,
         },
       });
+      if (movedToNewAnchor) emitInteractionFeedback('move');
     },
     invalidateDragPreview: () =>
       set((state) => (state.dragPreview ? { dragPreview: { ...state.dragPreview, valid: false } } : state)),
@@ -425,9 +485,10 @@ export const useRoomStore = create<RoomState>((set, get) => {
       if (!state.dragPreview || !state.draggingItemId) return false;
       if (!state.dragPreview.valid) {
         set({ dragPreview: null, draggingItemId: null });
+        emitInteractionFeedback('reject');
         return false;
       }
-      return commitRoom(
+      const committed = commitRoom(
         {
           ...readRoomSnapshot(state),
           placedItems: state.placedItems.map((item) => {
@@ -436,6 +497,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
               return {
                 ...item,
                 level: state.dragPreview!.item.level,
+                zoneId: state.dragPreview!.item.zoneId,
                 gridX: state.dragPreview!.item.gridX,
                 gridY: state.dragPreview!.item.gridY,
               };
@@ -445,6 +507,9 @@ export const useRoomStore = create<RoomState>((set, get) => {
         },
         { dragPreview: null, draggingItemId: null },
       );
+      if (committed) emitInteractionFeedback('settle');
+      else emitInteractionFeedback('settle', { sound: false });
+      return committed;
     },
     cancelDrag: () => set({ dragPreview: null, draggingItemId: null }),
     rotateSelected: (direction) => {
@@ -485,10 +550,12 @@ export const useRoomStore = create<RoomState>((set, get) => {
       };
       const target = nearbyAnchors(duplicateBase).find((candidate) => isValidPlacement(candidate, state.placedItems));
       if (!target) return false;
-      return commitRoom(
+      const committed = commitRoom(
         { ...readRoomSnapshot(state), placedItems: [...clonePlacedItems(state.placedItems), target] },
         { selectedItemId: target.id },
       );
+      if (committed) emitInteractionFeedback('place');
+      return committed;
     },
     deleteSelected: () => {
       const state = get();
@@ -504,7 +571,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
           .filter((item) => item.attachment?.hostItemId === state.selectedItemId)
           .map((item) => item.id),
       ]);
-      commitRoom(
+      const committed = commitRoom(
         {
           ...readRoomSnapshot(state),
           placedItems: clonePlacedItems(state.placedItems.filter((item) => !removedIds.has(item.id))),
@@ -514,6 +581,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
           readyModelItemIds: state.readyModelItemIds.filter((id) => !removedIds.has(id)),
         },
       );
+      if (committed) emitInteractionFeedback('delete');
     },
     undo: () => {
       const state = get();

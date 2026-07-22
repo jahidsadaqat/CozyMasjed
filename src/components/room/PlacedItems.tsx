@@ -95,7 +95,12 @@ function SelectionFootprint({
   const resolved = resolveItemTransform(item, items, dragPreview);
   const [x, y, z] = resolved.position;
   const size = getPlacementSize(catalogItem, item.surface, item.rotation);
-  const placementGrid = getPlacementGrid(item.buildingId, item.level, item.surface);
+  const placementGrid = getPlacementGrid(
+    item.buildingId,
+    item.level,
+    item.surface,
+    item.zoneId,
+  );
   const columnSize = placementGrid?.cellSize ?? CELL_SIZE;
   const rowSize = placementGrid?.rowSize ?? columnSize;
   const color = invalid ? '#D96F66' : '#C2BEC8';

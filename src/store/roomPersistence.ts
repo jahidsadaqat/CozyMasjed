@@ -9,9 +9,15 @@ import {
   type BuildingId,
 } from '../domain/buildings';
 import {
+  CELL_SIZE,
   DEFAULT_PLACEMENT_LEVEL,
+  getDefaultPlacementZoneId,
+  getPlacementSize,
+  getPlacementZones,
   isPlacementLevel,
+  isPlacementZoneId,
   isWithinGrid,
+  placementToWorld,
   placementsOverlap,
   type PlacedItem,
   type QuarterTurn,
@@ -32,16 +38,18 @@ import {
   useRoomStore,
 } from './roomStore';
 
-const STORAGE_KEY = 'deen-rooms:room:v6';
+const STORAGE_KEY = 'deen-rooms:room:v7';
+const LEGACY_V6_STORAGE_KEY = 'deen-rooms:room:v6';
 const LEGACY_V5_STORAGE_KEY = 'deen-rooms:room:v5';
 const LEGACY_V4_STORAGE_KEY = 'deen-rooms:room:v4';
 const LEGACY_V3_STORAGE_KEY = 'deen-rooms:room:v3';
 const LEGACY_V2_STORAGE_KEY = 'deen-rooms:room:v2';
 const LEGACY_V1_STORAGE_KEY = 'deen-rooms:room:v1';
-const STORAGE_VERSION = 6;
-const LEGACY_STORAGE_VERSIONS = [1, 2, 3, 4, 5] as const;
+const STORAGE_VERSION = 7;
+const LEGACY_STORAGE_VERSIONS = [1, 2, 3, 4, 5, 6] as const;
 const STORAGE_KEYS = [
   STORAGE_KEY,
+  LEGACY_V6_STORAGE_KEY,
   LEGACY_V5_STORAGE_KEY,
   LEGACY_V4_STORAGE_KEY,
   LEGACY_V3_STORAGE_KEY,
@@ -88,6 +96,181 @@ const CATALOG_ID_ALIASES: Readonly<Record<string, string>> = {
   'imported-model-36': 'imported-model-17',
 };
 
+type WorldPoint = readonly [number, number, number];
+
+type LegacyGrid = {
+  columns: number;
+  rows: number;
+  cellSize: number;
+  rowSize: number;
+  originX: number;
+  originY: number;
+  originZ: number;
+};
+
+const LEGACY_ROOM_SIZE = 4.4;
+const LEGACY_FLOOR_TOP = 0.04;
+const LEGACY_WALL_INSET = -2.035;
+const LEGACY_UPPER_FLOOR_TOP = 2.071;
+
+function getLegacyGrid(item: PlacedItem): LegacyGrid | null {
+  if (item.level === 'ground') {
+    if (item.surface === 'floor') {
+      return {
+        columns: 8,
+        rows: 8,
+        cellSize: CELL_SIZE,
+        rowSize: CELL_SIZE,
+        originX: -LEGACY_ROOM_SIZE / 2,
+        originY: LEGACY_FLOOR_TOP,
+        originZ: -LEGACY_ROOM_SIZE / 2,
+      };
+    }
+    return {
+      columns: 8,
+      rows: 4,
+      cellSize: CELL_SIZE,
+      rowSize: CELL_SIZE,
+      originX: item.surface === 'wallL' ? LEGACY_WALL_INSET : -LEGACY_ROOM_SIZE / 2,
+      originY: LEGACY_FLOOR_TOP,
+      originZ: item.surface === 'wallR' ? LEGACY_WALL_INSET : -LEGACY_ROOM_SIZE / 2,
+    };
+  }
+
+  if (item.buildingId !== 'arched-atrium') return null;
+  if (item.surface === 'floor') {
+    return {
+      columns: 6,
+      rows: 2,
+      cellSize: CELL_SIZE,
+      rowSize: CELL_SIZE,
+      originX: -1.65,
+      originY: LEGACY_UPPER_FLOOR_TOP,
+      originZ: -1.65,
+    };
+  }
+  return {
+    columns: item.surface === 'wallL' ? 2 : 6,
+    rows: 3,
+    cellSize: CELL_SIZE,
+    rowSize: 0.5,
+    originX: item.surface === 'wallL' ? -1.869 : -1.65,
+    originY: LEGACY_UPPER_FLOOR_TOP,
+    originZ: item.surface === 'wallR' ? -1.869 : -1.65,
+  };
+}
+
+function legacyPlacementToWorld(item: PlacedItem): WorldPoint {
+  const grid = getLegacyGrid(item);
+  const catalogItem = catalogById[item.catalogId];
+  if (!grid || !catalogItem) return [0, LEGACY_FLOOR_TOP, 0];
+
+  const size = getPlacementSize(catalogItem, item.surface, item.rotation);
+  const horizontal = grid.originX + (item.gridX + size.width / 2) * grid.cellSize;
+  if (item.surface === 'floor') {
+    return [
+      horizontal,
+      grid.originY,
+      grid.originZ + (item.gridY + size.height / 2) * grid.rowSize,
+    ];
+  }
+
+  const vertical = grid.originY + item.gridY * grid.rowSize + 0.1;
+  if (item.surface === 'wallL') {
+    return [
+      grid.originX,
+      vertical,
+      grid.originZ + (item.gridX + size.width / 2) * grid.cellSize,
+    ];
+  }
+  return [horizontal, vertical, grid.originZ];
+}
+
+function isWithinLegacyGrid(item: PlacedItem) {
+  const grid = getLegacyGrid(item);
+  const catalogItem = catalogById[item.catalogId];
+  if (!grid || !catalogItem) return false;
+  const size = getPlacementSize(catalogItem, item.surface, item.rotation);
+  return (
+    item.gridX >= 0 &&
+    item.gridY >= 0 &&
+    item.gridX + size.width <= grid.columns &&
+    item.gridY + size.height <= grid.rows
+  );
+}
+
+function squaredDistance(a: WorldPoint, b: WorldPoint) {
+  return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+}
+
+function orderedMigrationZones(item: PlacedItem) {
+  const catalogItem = catalogById[item.catalogId];
+  const groups = [
+    getPlacementZones(item.buildingId, item.level, item.surface),
+    getPlacementZones(item.buildingId, item.level).filter(
+      (zone) => catalogItem.allowedSurfaces.includes(zone.surface),
+    ),
+    getPlacementZones(item.buildingId).filter(
+      (zone) => zone.surface === item.surface,
+    ),
+    getPlacementZones(item.buildingId).filter(
+      (zone) => catalogItem.allowedSurfaces.includes(zone.surface),
+    ),
+  ];
+  const seen = new Set<string>();
+  return groups.map((zones) => zones.filter((zone) => {
+    if (seen.has(zone.id)) return false;
+    seen.add(zone.id);
+    return true;
+  }));
+}
+
+function findLegacyPlacement(
+  item: PlacedItem,
+  placedItems: readonly PlacedItem[],
+  referencePoint = legacyPlacementToWorld(item),
+): PlacedItem | null {
+  const catalogItem = catalogById[item.catalogId];
+  for (const zones of orderedMigrationZones(item)) {
+    let best: { item: PlacedItem; distance: number; order: number } | null = null;
+    let order = 0;
+    for (const zone of zones) {
+      const size = getPlacementSize(catalogItem, zone.surface, item.rotation);
+      for (let gridY = 0; gridY <= zone.rows - size.height; gridY += 1) {
+        for (let gridX = 0; gridX <= zone.columns - size.width; gridX += 1) {
+          const candidate: PlacedItem = {
+            ...item,
+            gridX,
+            gridY,
+            surface: zone.surface,
+            level: zone.level,
+            zoneId: zone.id,
+            attachment: undefined,
+          };
+          if (!isValidPlacement(candidate, placedItems)) {
+            order += 1;
+            continue;
+          }
+          const distance = squaredDistance(
+            referencePoint,
+            placementToWorld(candidate, catalogItem),
+          );
+          if (
+            !best ||
+            distance < best.distance - Number.EPSILON ||
+            (Math.abs(distance - best.distance) <= Number.EPSILON && order < best.order)
+          ) {
+            best = { item: candidate, distance, order };
+          }
+          order += 1;
+        }
+      }
+    }
+    if (best) return best.item;
+  }
+  return null;
+}
+
 function parsePlacedItem(value: unknown): PlacedItem | null {
   if (!isRecord(value)) return null;
   const {
@@ -99,6 +282,7 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
     rotation,
     surface,
     level: storedLevel,
+    zoneId: storedZoneId,
     attachment: storedAttachment,
   } = value;
   const catalogId = typeof storedCatalogId === 'string'
@@ -114,9 +298,16 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
     : isPlacementLevel(storedLevel)
       ? storedLevel
       : null;
+  const zoneId = storedZoneId === undefined && buildingId && level &&
+      (surface === 'floor' || surface === 'wallL' || surface === 'wallR')
+    ? getDefaultPlacementZoneId(buildingId, level, surface)
+    : isPlacementZoneId(storedZoneId)
+      ? storedZoneId
+      : null;
   if (
     !buildingId ||
     !level ||
+    !zoneId ||
     typeof id !== 'string' ||
     id.length === 0 ||
     typeof catalogId !== 'string' ||
@@ -137,6 +328,7 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
     rotation,
     surface,
     level,
+    zoneId,
   };
   if (storedAttachment !== undefined) {
     if (
@@ -156,7 +348,6 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
   const catalogItem = catalogById[catalogId];
   if (
     !catalogItem.allowedSurfaces.includes(surface) ||
-    !isWithinGrid(item, catalogItem) ||
     (catalogItem.rotatable === false && rotation !== 0)
   ) {
     return null;
@@ -164,7 +355,85 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
   return item;
 }
 
-function parseRoomSnapshot(value: unknown): RoomSnapshot | null {
+function parseCurrentPlacedItems(values: readonly unknown[]): PlacedItem[] | null {
+  const parsedItems: PlacedItem[] = [];
+  const ids = new Set<string>();
+  for (const value of values) {
+    const item = parsePlacedItem(value);
+    if (!item || ids.has(item.id)) return null;
+    const itemCatalog = catalogById[item.catalogId];
+    if (!isWithinGrid(item, itemCatalog)) return null;
+    const overlaps = parsedItems.some((other) => {
+      if (item.buildingId !== other.buildingId || item.attachment || other.attachment) return false;
+      const otherCatalog = catalogById[other.catalogId];
+      return placementsOverlap(item, itemCatalog, other, otherCatalog);
+    });
+    if (overlaps) return null;
+    ids.add(item.id);
+    parsedItems.push(item);
+  }
+
+  if (parsedItems.some((item) => item.attachment && !isValidPlacement(item, parsedItems, item.id))) {
+    return null;
+  }
+  return parsedItems;
+}
+
+function migrateLegacyPlacedItems(values: readonly unknown[]): PlacedItem[] {
+  const sourceItems: PlacedItem[] = [];
+  const ids = new Set<string>();
+  for (const value of values) {
+    const item = parsePlacedItem(value);
+    if (!item || ids.has(item.id) || !isWithinLegacyGrid(item)) {
+      if (__DEV__) console.warn('[Deen Rooms] Skipped one invalid legacy room item.');
+      continue;
+    }
+    ids.add(item.id);
+    sourceItems.push(item);
+  }
+
+  const migratedItems: PlacedItem[] = [];
+  for (const item of sourceItems.filter((candidate) => !candidate.attachment)) {
+    const migrated = findLegacyPlacement(item, migratedItems);
+    if (migrated) {
+      migratedItems.push(migrated);
+    } else if (__DEV__) {
+      console.warn(`[Deen Rooms] No free placement remained for legacy item ${item.id}.`);
+    }
+  }
+
+  for (const item of sourceItems.filter((candidate) => candidate.attachment)) {
+    const host = migratedItems.find((candidate) => candidate.id === item.attachment?.hostItemId);
+    if (host && host.buildingId === item.buildingId) {
+      const attachedCandidate: PlacedItem = {
+        ...item,
+        surface: 'floor',
+        level: host.level,
+        zoneId: host.zoneId,
+        gridX: host.gridX,
+        gridY: host.gridY,
+      };
+      if (isValidPlacement(attachedCandidate, migratedItems, item.id)) {
+        migratedItems.push(attachedCandidate);
+        continue;
+      }
+    }
+
+    const detached = findLegacyPlacement(
+      { ...item, attachment: undefined },
+      migratedItems,
+    );
+    if (detached) {
+      migratedItems.push(detached);
+    } else if (__DEV__) {
+      console.warn(`[Deen Rooms] No free placement remained for legacy item ${item.id}.`);
+    }
+  }
+
+  return migratedItems;
+}
+
+function parseRoomSnapshot(value: unknown, storageVersion: number): RoomSnapshot | null {
   if (!isRecord(value)) return null;
   const {
     placedItems,
@@ -198,25 +467,10 @@ function parseRoomSnapshot(value: unknown): RoomSnapshot | null {
     return null;
   }
 
-  const parsedItems: PlacedItem[] = [];
-  const ids = new Set<string>();
-  for (const valueItem of placedItems) {
-    const item = parsePlacedItem(valueItem);
-    if (!item || ids.has(item.id)) return null;
-    const itemCatalog = catalogById[item.catalogId];
-    const overlaps = parsedItems.some((other) => {
-      if (item.buildingId !== other.buildingId || item.attachment || other.attachment) return false;
-      const otherCatalog = catalogById[other.catalogId];
-      return placementsOverlap(item, itemCatalog, other, otherCatalog);
-    });
-    if (overlaps) return null;
-    ids.add(item.id);
-    parsedItems.push(item);
-  }
-
-  if (parsedItems.some((item) => item.attachment && !isValidPlacement(item, parsedItems, item.id))) {
-    return null;
-  }
+  const parsedItems = storageVersion < STORAGE_VERSION
+    ? migrateLegacyPlacedItems(placedItems)
+    : parseCurrentPlacedItems(placedItems);
+  if (!parsedItems) return null;
 
   return { placedItems: parsedItems, floorColor, wallColor, backgroundId, accentColor, weather };
 }
@@ -232,7 +486,7 @@ function parseStoredRoom(raw: string | null): ParsedStoredRoom | null {
     ) {
       return null;
     }
-    const room = parseRoomSnapshot(envelope.room);
+    const room = parseRoomSnapshot(envelope.room, envelope.version as number);
     if (!room) return null;
     return {
       room,
@@ -264,16 +518,13 @@ function seedEmptyBuildings(room: RoomSnapshot, previousRevision: number): RoomS
   let placedItems = room.placedItems.map(clonePlacedItem);
   for (const buildingId of BUILDING_IDS) {
     const buildingItems = placedItems.filter((item) => item.buildingId === buildingId);
-    const isPreviousStarterLayout =
-      buildingItems.length > 0 &&
-      previousRevision < STARTER_LAYOUT_REVISION &&
-      buildingItems.every((item) => item.id.startsWith('starter-v1-'));
-    if (buildingItems.length > 0 && !isPreviousStarterLayout) continue;
+    // Starter IDs are stable even after users move or rotate those items. A
+    // non-empty room is therefore always user-owned and must never be replaced
+    // merely because every ID still has the starter prefix.
+    if (buildingItems.length > 0) continue;
 
     const layout = starterLayouts[buildingId];
-    const preservedItems = isPreviousStarterLayout
-      ? placedItems.filter((item) => item.buildingId !== buildingId)
-      : placedItems;
+    const preservedItems = placedItems;
     if (preservedItems.length + layout.length > MAX_PERSISTED_ITEMS) continue;
 
     const candidateItems = preservedItems.map(clonePlacedItem);

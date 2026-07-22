@@ -3,6 +3,7 @@ import { Hand, Move, Palette as PaletteIcon, Plus, ZoomIn } from 'lucide-react-n
 import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import { emitInteractionFeedback } from '../../feedback/interactionFeedbackEvents';
 import { palette } from '../../theme/palette';
 
 const TUTORIAL_KEY = 'deen-rooms:tutorial:v1';
@@ -36,6 +37,7 @@ export function WelcomeGuide() {
   if (!visible) return null;
 
   const dismiss = () => {
+    emitInteractionFeedback('ui');
     setVisible(false);
     void AsyncStorage.setItem(TUTORIAL_KEY, 'seen');
   };

@@ -2,6 +2,7 @@ import { RoundedBox } from '@react-three/drei/native';
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import { palette } from '../../theme/palette';
+import { PlacementZoneTargets } from './PlacementZoneTargets';
 import { PointedArch } from './PointedArch';
 
 type RoomShellProps = {
@@ -42,10 +43,6 @@ function makeLeftWallShape() {
   return wall;
 }
 
-function makeLeftWallHitGeometry() {
-  return new THREE.ShapeGeometry(makeLeftWallShape(), 32);
-}
-
 function makeLeftWallBodyGeometry() {
   return new THREE.ExtrudeGeometry(makeLeftWallShape(), {
     depth: 0.13,
@@ -59,7 +56,6 @@ function makeLeftWallBodyGeometry() {
 }
 
 export function RoomShell({ floorColor, wallColor, accentColor }: RoomShellProps) {
-  const leftWallHitGeometry = useMemo(() => makeLeftWallHitGeometry(), []);
   const leftWallBodyGeometry = useMemo(() => makeLeftWallBodyGeometry(), []);
   const seamColor = useMemo(() => {
     return floorColor === '#6F5141' ? '#4E382F' : '#8D5C43';
@@ -67,29 +63,7 @@ export function RoomShell({ floorColor, wallColor, accentColor }: RoomShellProps
 
   return (
     <group>
-      <mesh
-        position={[0, 0.035, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        userData={{ placementSurface: 'floor', placementLevel: 'ground' }}
-      >
-        <planeGeometry args={[4.4, 4.4]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
-      <mesh
-        geometry={leftWallHitGeometry}
-        position={[-2.038, -0.04, 0]}
-        rotation={[0, Math.PI / 2, 0]}
-        userData={{ placementSurface: 'wallL', placementLevel: 'ground' }}
-      >
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh
-        position={[0, 1.1, -2.038]}
-        userData={{ placementSurface: 'wallR', placementLevel: 'ground' }}
-      >
-        <planeGeometry args={[4.4, 2.2]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
+      <PlacementZoneTargets buildingId="cozy-masjid" />
       <RoundedBox args={[4.86, 0.28, 4.86]} radius={0.12} smoothness={4} position={[0, -0.25, 0]}>
         <meshStandardMaterial color={palette.terracottaDeep} roughness={0.82} />
       </RoundedBox>

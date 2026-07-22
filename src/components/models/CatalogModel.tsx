@@ -66,6 +66,7 @@ export function CatalogModel({
   const gltf = useMeshoptGLTF(item.asset);
   const weather = useRoomStore((state) => state.weather);
   const lampsActive = weatherVisualProfiles[weather].lampsActive;
+  const mountsToWall = !item.allowedSurfaces.includes('floor');
 
   const normalizedScene = useMemo(() => {
     const scene = gltf.scene.clone(true);
@@ -95,10 +96,13 @@ export function CatalogModel({
 
     const bounds = new THREE.Box3().setFromObject(scene);
     const center = bounds.getCenter(new THREE.Vector3());
-    scene.position.set(-center.x, -bounds.min.y, -center.z);
+    // Floor props are centred on their grid cell. Wall props instead use the
+    // back face as local z=0, so their entire depth projects into the room and
+    // no part of a clock, shelf or sconce can end up behind the wall.
+    scene.position.set(-center.x, -bounds.min.y, mountsToWall ? -bounds.min.z : -center.z);
     scene.updateMatrixWorld(true);
     return scene;
-  }, [gltf.scene, item.id]);
+  }, [gltf.scene, item.id, mountsToWall]);
 
   useEffect(() => {
     onReady?.(item.id);

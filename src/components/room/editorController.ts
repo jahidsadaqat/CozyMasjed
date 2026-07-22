@@ -1,5 +1,4 @@
 import type { RootState } from '@react-three/fiber';
-import * as Haptics from 'expo-haptics';
 import { AccessibilityInfo } from 'react-native';
 import * as THREE from 'three';
 import { catalogById } from '../../catalog/catalog';
@@ -19,13 +18,18 @@ import {
   DEFAULT_CAMERA_ZOOM,
 } from '../../domain/camera';
 import {
-  DEFAULT_PLACEMENT_LEVEL,
-  isPlacementLevel,
+  getPlacementZone,
+  isPlacementZoneId,
   placementToWorld,
   worldToPlacement,
   type PlacementLevel,
+  type PlacementZoneId,
   type PlacedItem,
 } from '../../domain/grid';
+import {
+  emitInteractionFeedback,
+  type InteractionFeedbackOptions,
+} from '../../feedback/interactionFeedbackEvents';
 import { useRoomStore } from '../../store/roomStore';
 
 let rootState: RootState | null = null;
@@ -40,6 +44,7 @@ const pinchPlane = new THREE.Plane();
 let hasPinchAnchor = false;
 let dragGrabOffset = new THREE.Vector3();
 let activeDragSurface: PlacementSurface | null = null;
+let activeDragZoneId: PlacementZoneId | null = null;
 let preparedPan: { mode: 'item' | 'placement' | 'orbit'; x: number; y: number; placedId?: string } | null = null;
 let activePanMode: 'item' | 'placement' | 'orbit' | null = null;
 let orbitStartYaw = DEFAULT_CAMERA_YAW;
@@ -53,12 +58,17 @@ function findTaggedParent(
     | 'placementPreviewId'
     | 'placementSurface'
     | 'placementLevel'
+    | 'placementZoneId'
+    | 'placementBuildingId'
+    | 'placementOccluder'
     | 'attachmentHostId'
     | 'attachmentSlotId',
 ) {
   let current: THREE.Object3D | null = object;
   while (current) {
-    if (current.userData[key]) return current.userData[key] as string;
+    if (Object.prototype.hasOwnProperty.call(current.userData, key)) {
+      return current.userData[key] as unknown;
+    }
     current = current.parent;
   }
   return null;
@@ -73,11 +83,17 @@ function attachmentSlotHit(
   for (const hit of hits) {
     const hostId = findTaggedParent(hit.object, 'attachmentHostId');
     const slotId = findTaggedParent(hit.object, 'attachmentSlotId');
-    if (!hostId || !slotId) continue;
+    if (typeof hostId !== 'string' || typeof slotId !== 'string') continue;
     const host = placedItems.find((item) => item.id === hostId);
     if (
       host &&
-      canAttachToSlot({ ...child, level: host.level }, host, slotId, placedItems, ignoredItemId)
+      canAttachToSlot(
+        { ...child, level: host.level, zoneId: host.zoneId },
+        host,
+        slotId,
+        placedItems,
+        ignoredItemId,
+      )
     ) {
       return { hostId, slotId };
     }
@@ -95,7 +111,7 @@ function intersectionsAt(x: number, y: number) {
 function findPlacedId(hits: THREE.Intersection[]) {
   for (const hit of hits) {
     const id = findTaggedParent(hit.object, 'placedItemId');
-    if (id) return id;
+    if (typeof id === 'string') return id;
   }
   return null;
 }
@@ -103,7 +119,7 @@ function findPlacedId(hits: THREE.Intersection[]) {
 function findPlacementPreviewId(hits: THREE.Intersection[]) {
   for (const hit of hits) {
     const id = findTaggedParent(hit.object, 'placementPreviewId');
-    if (id) return id;
+    if (typeof id === 'string') return id;
   }
   return null;
 }
@@ -112,23 +128,44 @@ function surfaceHit(
   hits: THREE.Intersection[],
   accepted?: readonly PlacementSurface[],
   requiredLevel?: PlacementLevel,
+  requiredZoneId?: PlacementZoneId,
 ) {
+  const activeBuildingId = useRoomStore.getState().activeBuildingId;
   for (const hit of hits) {
-    const surface = findTaggedParent(hit.object, 'placementSurface') as PlacementSurface | null;
-    const storedLevel = findTaggedParent(hit.object, 'placementLevel');
-    const level = isPlacementLevel(storedLevel) ? storedLevel : DEFAULT_PLACEMENT_LEVEL;
-    if (
-      surface &&
-      (!accepted || accepted.includes(surface)) &&
-      (!requiredLevel || requiredLevel === level)
-    ) {
-      return { surface, level, point: hit.point };
+    const taggedBuildingId = findTaggedParent(hit.object, 'placementBuildingId');
+    if (taggedBuildingId && taggedBuildingId !== activeBuildingId) continue;
+
+    const storedZoneId = findTaggedParent(hit.object, 'placementZoneId');
+    if (!isPlacementZoneId(storedZoneId)) continue;
+    const zone = getPlacementZone(storedZoneId);
+    const isRelevantZone =
+      zone.buildingId === activeBuildingId &&
+      (!accepted || accepted.includes(zone.surface)) &&
+      (!requiredLevel || requiredLevel === zone.level) &&
+      (!requiredZoneId || requiredZoneId === zone.id);
+
+    if (findTaggedParent(hit.object, 'placementOccluder') === true) {
+      if (isRelevantZone) return null;
+      continue;
+    }
+
+    if (isRelevantZone) {
+      return {
+        surface: zone.surface,
+        level: zone.level,
+        zoneId: zone.id,
+        point: hit.point,
+      };
     }
   }
   return null;
 }
 
-function updatePlacementFromPointer(x: number, y: number) {
+function updatePlacementFromPointer(
+  x: number,
+  y: number,
+  moveFeedback?: InteractionFeedbackOptions | false,
+) {
   const store = useRoomStore.getState();
   const preview = store.placementPreview;
   const catalogItem = store.placingCatalogId ? catalogById[store.placingCatalogId] : null;
@@ -142,15 +179,19 @@ function updatePlacementFromPointer(x: number, y: number) {
       const rotation = host
         ? rotationForAttachment(preview.item, host, slotHit.slotId, store.placedItems)
         : preview.item.rotation;
-      store.previewPlacement({
-        ...preview.item,
-        rotation,
-        surface: 'floor',
-        level: host?.level ?? preview.item.level,
-        gridX: host?.gridX ?? preview.item.gridX,
-        gridY: host?.gridY ?? preview.item.gridY,
-        attachment: { hostItemId: slotHit.hostId, slotId: slotHit.slotId },
-      });
+      store.previewPlacement(
+        {
+          ...preview.item,
+          rotation,
+          surface: 'floor',
+          level: host?.level ?? preview.item.level,
+          zoneId: host?.zoneId ?? preview.item.zoneId,
+          gridX: host?.gridX ?? preview.item.gridX,
+          gridY: host?.gridY ?? preview.item.gridY,
+          attachment: { hostItemId: slotHit.hostId, slotId: slotHit.slotId },
+        },
+        moveFeedback,
+      );
       return useRoomStore.getState().placementPreview?.valid ?? false;
     }
   }
@@ -165,19 +206,25 @@ function updatePlacementFromPointer(x: number, y: number) {
   const anchor = worldToPlacement(
     hit.point,
     catalogItem,
-    preview.item.buildingId,
-    hit.level,
-    hit.surface,
+    hit.zoneId,
     rotation,
     hit.surface !== 'floor',
   );
-  store.previewPlacement({ ...preview.item, ...anchor, rotation, attachment: undefined });
+  store.previewPlacement(
+    {
+      ...preview.item,
+      ...anchor,
+      rotation,
+      attachment: undefined,
+    },
+    moveFeedback,
+  );
   return useRoomStore.getState().placementPreview?.valid ?? false;
 }
 
 export function updateEditorPlacementHover(x: number, y: number) {
   if (pinchActive || activePanMode || !useRoomStore.getState().placingCatalogId) return;
-  updatePlacementFromPointer(x, y);
+  updatePlacementFromPointer(x, y, { haptic: false });
 }
 
 export function setEditorRootState(state: RootState) {
@@ -208,16 +255,20 @@ export function handleEditorTap(x: number, y: number) {
   if (pinchActive || Date.now() < suppressTapUntil) return;
   const store = useRoomStore.getState();
   if (store.placingCatalogId) {
-    if (updatePlacementFromPointer(x, y)) useRoomStore.getState().commitPlacementPreview();
+    const valid = updatePlacementFromPointer(x, y, false);
+    const committed = valid && useRoomStore.getState().commitPlacementPreview();
+    if (!committed) emitInteractionFeedback('reject');
     return;
   }
 
   const hits = intersectionsAt(x, y);
   const placedId = findPlacedId(hits);
   if (placedId) {
+    if (store.selectedItemId !== placedId) emitInteractionFeedback('selection');
     store.selectItem(placedId);
     return;
   }
+  if (store.selectedItemId) emitInteractionFeedback('selection');
   store.selectItem(null);
 }
 
@@ -233,16 +284,18 @@ function beginItemDrag(placedId: string, x: number, y: number) {
   if (placed.attachment) {
     dragGrabOffset.set(0, 0, 0);
     activeDragSurface = 'floor';
+    activeDragZoneId = placed.zoneId;
     store.beginDrag(placedId);
     return true;
   }
 
-  const hit = surfaceHit(hits, [placed.surface], placed.level);
+  const hit = surfaceHit(hits, [placed.surface], placed.level, placed.zoneId);
   if (!hit) return false;
   const [worldX, worldY, worldZ] = placementToWorld(placed, catalogItem);
   dragGrabOffset = hit.point.clone().sub(new THREE.Vector3(worldX, worldY, worldZ));
   if (placed.surface !== 'floor') dragGrabOffset.y = hit.point.y - worldY;
   activeDragSurface = placed.surface;
+  activeDragZoneId = placed.zoneId;
   store.beginDrag(placedId);
   return true;
 }
@@ -267,37 +320,55 @@ function updateItemDrag(x: number, y: number) {
         rotation,
         surface: 'floor',
         level: host?.level ?? preview.item.level,
+        zoneId: host?.zoneId ?? preview.item.zoneId,
         gridX: host?.gridX ?? preview.item.gridX,
         gridY: host?.gridY ?? preview.item.gridY,
         attachment: { hostItemId: slotHit.hostId, slotId: slotHit.slotId },
       });
+      activeDragSurface = 'floor';
+      activeDragZoneId = host?.zoneId ?? preview.item.zoneId;
+      dragGrabOffset.set(0, 0, 0);
       return;
     }
   }
 
-  const hit = surfaceHit(hits, [activeDragSurface]);
+  const hit = surfaceHit(hits, catalogItem.allowedSurfaces);
   if (!hit) {
     store.invalidateDragPreview();
     return;
   }
-  const desired = hit.point.clone().sub(dragGrabOffset);
+  const changedZone = hit.zoneId !== activeDragZoneId;
+  const desired = changedZone ? hit.point : hit.point.clone().sub(dragGrabOffset);
   const rotation = sourceItem.attachment
     ? worldItemRotation(sourceItem, store.placedItems)
     : sourceItem.rotation;
   const anchor = worldToPlacement(
     desired,
     catalogItem,
-    preview.item.buildingId,
-    hit.level,
-    activeDragSurface,
+    hit.zoneId,
     rotation,
+    changedZone && hit.surface !== 'floor',
   );
-  const candidate: PlacedItem = { ...preview.item, ...anchor, rotation, attachment: undefined };
+  const candidate: PlacedItem = {
+    ...preview.item,
+    ...anchor,
+    rotation,
+    attachment: undefined,
+  };
+
+  if (changedZone) {
+    const [worldX, worldY, worldZ] = placementToWorld(candidate, catalogItem);
+    dragGrabOffset.copy(hit.point).sub(new THREE.Vector3(worldX, worldY, worldZ));
+    activeDragSurface = hit.surface;
+    activeDragZoneId = hit.zoneId;
+  }
+
   store.previewMove(candidate);
 }
 
 function clearItemDrag() {
   activeDragSurface = null;
+  activeDragZoneId = null;
   dragGrabOffset.set(0, 0, 0);
 }
 
@@ -360,7 +431,8 @@ export function activateEditorPan() {
   if (!preparedPan || pinchActive) return;
   if (preparedPan.mode === 'placement') {
     activePanMode = 'placement';
-    updatePlacementFromPointer(preparedPan.x, preparedPan.y);
+    emitInteractionFeedback('dragStart');
+    updatePlacementFromPointer(preparedPan.x, preparedPan.y, false);
     return;
   }
   if (preparedPan.mode === 'item' && preparedPan.placedId) {
@@ -417,10 +489,10 @@ function switchBuildingFromRoomSwipe(
   // original angle before paging so switching buildings never leaves a camera
   // rotation behind.
   applyCameraYaw(orbitStartYaw);
+  emitInteractionFeedback('buildingSwitch');
   store.setActiveBuildingId(nextBuilding.id);
   saveCameraView();
   suppressTapUntil = Date.now() + 180;
-  void Haptics.selectionAsync();
   void AccessibilityInfo.announceForAccessibility(
     `${nextBuilding.name}, building ${nextIndex + 1} of ${BUILDING_OPTIONS.length}`,
   );
@@ -437,7 +509,11 @@ export function finishEditorPan(
 ) {
   const store = useRoomStore.getState();
   if (activePanMode === 'placement') {
-    if (success && updatePlacementFromPointer(x, y)) useRoomStore.getState().commitPlacementPreview();
+    if (success) {
+      const valid = updatePlacementFromPointer(x, y, false);
+      const committed = valid && useRoomStore.getState().commitPlacementPreview();
+      if (!committed) emitInteractionFeedback('reject');
+    }
   } else if (activePanMode === 'item') {
     if (success) store.finishDrag();
     else store.cancelDrag();

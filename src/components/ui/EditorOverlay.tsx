@@ -1,4 +1,3 @@
-import * as Haptics from 'expo-haptics';
 import {
   Armchair,
   BookOpen,
@@ -36,6 +35,11 @@ import { catalogThumbnails } from '../../catalog/thumbnails';
 import type { CatalogCategory, CatalogItem } from '../../catalog/types';
 import { getAttachmentSlot } from '../../domain/attachments';
 import { weatherModes, weatherVisualProfiles, type WeatherMode } from '../../domain/weather';
+import {
+  emitInteractionFeedback,
+  type InteractionFeedbackEvent,
+  type InteractionFeedbackOptions,
+} from '../../feedback/interactionFeedbackEvents';
 import { captureSaveAndShareRoom } from '../../services/roomSnapshot';
 import { useRoomStore } from '../../store/roomStore';
 import { backgroundOptions, type BackgroundId } from '../../theme/backgrounds';
@@ -95,8 +99,16 @@ function WeatherGlyph({ weather, color, size = 20 }: { weather: WeatherMode; col
   return <Sun color={color} size={size} />;
 }
 
-function tapFeedback() {
-  void Haptics.selectionAsync();
+function tapFeedback(
+  feedback: InteractionFeedbackEvent = 'ui',
+  options?: InteractionFeedbackOptions,
+) {
+  emitInteractionFeedback(feedback, options);
+}
+
+function rejectedActionFeedback() {
+  emitInteractionFeedback('ui', { haptic: false });
+  emitInteractionFeedback('reject', { sound: false });
 }
 
 function RoundButton({
@@ -107,6 +119,7 @@ function RoundButton({
   active = false,
   accessibilityHint,
   expanded,
+  feedback = 'ui',
 }: {
   label: string;
   icon: ReactNode;
@@ -115,6 +128,7 @@ function RoundButton({
   active?: boolean;
   accessibilityHint?: string;
   expanded?: boolean;
+  feedback?: InteractionFeedbackEvent | false;
 }) {
   return (
     <Pressable
@@ -124,7 +138,10 @@ function RoundButton({
       accessibilityState={{ disabled, expanded }}
       aria-expanded={expanded}
       disabled={disabled}
-      onPress={onPress}
+      onPress={() => {
+        if (feedback) tapFeedback(feedback);
+        onPress();
+      }}
       style={({ pressed }) => [
         styles.roundButton,
         active && styles.roundButtonActive,
@@ -164,7 +181,11 @@ function WeatherPopover({
               aria-checked={active}
               hitSlop={4}
               onPress={() => {
-                tapFeedback();
+                if (active) {
+                  tapFeedback('selection', { haptic: false });
+                  return;
+                }
+                tapFeedback('selection');
                 onSelect(weather);
                 void AccessibilityInfo.announceForAccessibility(`${label} weather selected`);
               }}
@@ -180,8 +201,8 @@ function WeatherPopover({
         })}
       </View>
       <Pressable
-        accessibilityHint="Toggles ambient weather audio"
-        accessibilityLabel={soundOn ? 'Turn weather sound off' : 'Turn weather sound on'}
+        accessibilityHint="Toggles the weather ambience"
+        accessibilityLabel={soundOn ? 'Turn weather ambience off' : 'Turn weather ambience on'}
         accessibilityRole="switch"
         accessibilityState={{ checked: soundOn }}
         aria-checked={soundOn}
@@ -189,7 +210,9 @@ function WeatherPopover({
         onPress={() => {
           tapFeedback();
           onToggleSound();
-          void AccessibilityInfo.announceForAccessibility(soundOn ? 'Weather sound off' : 'Weather sound on');
+          void AccessibilityInfo.announceForAccessibility(
+            soundOn ? 'Weather ambience off' : 'Weather ambience on',
+          );
         }}
         style={({ pressed }) => [
           styles.weatherSoundButton,
@@ -216,6 +239,7 @@ function PillButton({
   accessibilityLabel,
   expanded,
   onPress,
+  feedback = 'ui',
 }: {
   label: string;
   icon: ReactNode;
@@ -225,6 +249,7 @@ function PillButton({
   accessibilityLabel?: string;
   expanded?: boolean;
   onPress: () => void;
+  feedback?: InteractionFeedbackEvent | false;
 }) {
   return (
     <Pressable
@@ -234,7 +259,10 @@ function PillButton({
       accessibilityState={{ disabled, expanded }}
       aria-expanded={expanded}
       disabled={disabled}
-      onPress={onPress}
+      onPress={() => {
+        if (feedback) tapFeedback(feedback);
+        onPress();
+      }}
       style={({ pressed }) => [
         styles.pillButton,
         active && styles.pillButtonActive,
@@ -286,7 +314,11 @@ function CatalogTray({ onClose }: { onClose: () => void }) {
               accessibilityState={{ selected: active }}
               hitSlop={8}
               onPress={() => {
-                tapFeedback();
+                if (active) {
+                  tapFeedback('selection', { haptic: false });
+                  return;
+                }
+                tapFeedback('selection');
                 setCategory(value);
               }}
               style={[styles.categoryChip, active && styles.categoryChipActive]}
@@ -309,7 +341,7 @@ function CatalogTray({ onClose }: { onClose: () => void }) {
             accessibilityLabel={`Add ${item.name}`}
             accessibilityRole="button"
             onPress={() => {
-              tapFeedback();
+              tapFeedback('assetSelect');
               startPlacing(item.id);
               onClose();
               AccessibilityInfo.announceForAccessibility(`${item.name} ready to move. Tap or drag to place it.`);
@@ -362,7 +394,11 @@ function ColorPicker({
             aria-checked={active}
             hitSlop={4}
             onPress={() => {
-              tapFeedback();
+              if (active) {
+                tapFeedback('selection', { haptic: false });
+                return;
+              }
+              tapFeedback('selection');
               onSelect(color);
             }}
             style={({ pressed }) => [
@@ -407,7 +443,11 @@ function BackgroundPicker({
             aria-checked={active}
             hitSlop={3}
             onPress={() => {
-              tapFeedback();
+              if (active) {
+                tapFeedback('selection', { haptic: false });
+                return;
+              }
+              tapFeedback('selection');
               onSelect(option.id);
             }}
             style={({ pressed }) => [
@@ -452,7 +492,11 @@ function StylePanel() {
               accessibilityState={{ checked: active }}
               aria-checked={active}
               onPress={() => {
-                tapFeedback();
+                if (active) {
+                  tapFeedback('selection', { haptic: false });
+                  return;
+                }
+                tapFeedback('selection');
                 setSection(option.id);
               }}
               style={({ pressed }) => [
@@ -502,18 +546,38 @@ function SelectedItemActions() {
       <RoundButton
         label="Rotate left"
         disabled={!canRotate}
+        feedback={false}
         icon={<RotateCcw color={palette.ink} size={20} />}
-        onPress={() => rotateSelected(-1)}
+        onPress={() => {
+          if (rotateSelected(-1)) tapFeedback();
+          else rejectedActionFeedback();
+        }}
       />
       <RoundButton
         label="Rotate right"
         disabled={!canRotate}
+        feedback={false}
         icon={<RotateCw color={palette.ink} size={20} />}
-        onPress={() => rotateSelected(1)}
+        onPress={() => {
+          if (rotateSelected(1)) tapFeedback();
+          else rejectedActionFeedback();
+        }}
       />
-      <RoundButton label="Duplicate item" icon={<CopyPlus color={palette.ink} size={20} />} onPress={duplicateSelected} />
+      <RoundButton
+        label="Duplicate item"
+        feedback={false}
+        icon={<CopyPlus color={palette.ink} size={20} />}
+        onPress={() => {
+          if (!duplicateSelected()) rejectedActionFeedback();
+        }}
+      />
       <View style={styles.actionDivider} />
-      <RoundButton label="Delete item" icon={<Trash2 color="#B85C4C" size={20} />} onPress={deleteSelected} />
+      <RoundButton
+        label="Delete item"
+        feedback={false}
+        icon={<Trash2 color="#B85C4C" size={20} />}
+        onPress={deleteSelected}
+      />
     </View>
   );
 }
@@ -548,6 +612,7 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
   );
   const modelsReady = activePlacedItems.every((item) => readyModelItemIds.includes(item.id));
   const backgroundReady = readyBackgroundId === backgroundId;
+  const canGoBack = Boolean(panel || placingCatalogId || selectedItemId);
 
   const closePanel = () => setPanel(null);
   const handleBack = () => {
@@ -558,6 +623,7 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
 
   const handleSnap = async () => {
     if (isCapturing || !modelsReady || !backgroundReady || hasPlacementPreview) return;
+    emitInteractionFeedback('camera');
     setPanel(null);
     cancelDrag();
     setCaptureClean(true);
@@ -591,8 +657,13 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
       setIsCapturing(false);
     }
 
-    if (failureMessage) setNotice({ title: 'Could not capture the room', message: failureMessage });
-    else if (successMessage) setNotice({ title: 'Room captured', message: successMessage });
+    if (failureMessage) {
+      emitInteractionFeedback('captureError');
+      setNotice({ title: 'Could not capture the room', message: failureMessage });
+    } else if (successMessage) {
+      emitInteractionFeedback('captureSuccess');
+      setNotice({ title: 'Room captured', message: successMessage });
+    }
     setTimeout(() => setNotice(null), 3_200);
   };
 
@@ -625,6 +696,7 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
             label={placingCatalogId ? 'Cancel placement' : panel === 'weather' ? 'Close weather menu' : panel ? 'Close panel' : 'Back'}
             icon={<ChevronLeft color={palette.ink} size={24} />}
             onPress={handleBack}
+            feedback={canGoBack ? 'ui' : false}
           />
           <View style={styles.topActions}>
             <RoundButton
@@ -640,7 +712,6 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
                 />
               }
               onPress={() => {
-                tapFeedback();
                 setPanel((current) => (current === 'weather' ? null : 'weather'));
               }}
             />
@@ -649,7 +720,6 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
               disabled={!canUndo}
               icon={<Undo2 color={palette.ink} size={21} />}
               onPress={() => {
-                tapFeedback();
                 undo();
               }}
             />
@@ -658,7 +728,6 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
               disabled={!canRedo}
               icon={<Redo2 color={palette.ink} size={21} />}
               onPress={() => {
-                tapFeedback();
                 redo();
               }}
             />
@@ -704,6 +773,7 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
           <PillButton
             label="Snap"
             disabled={!modelsReady || !backgroundReady || hasPlacementPreview}
+            feedback={false}
             icon={<Camera color={palette.ink} size={20} />}
             onPress={() => void handleSnap()}
           />

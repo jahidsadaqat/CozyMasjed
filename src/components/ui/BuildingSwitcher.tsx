@@ -1,9 +1,9 @@
-import * as Haptics from 'expo-haptics';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useMemo } from 'react';
 import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { BUILDING_OPTIONS, type BuildingId } from '../../domain/buildings';
+import { emitInteractionFeedback } from '../../feedback/interactionFeedbackEvents';
 import { useRoomStore } from '../../store/roomStore';
 import { palette } from '../../theme/palette';
 
@@ -29,8 +29,8 @@ export function BuildingSwitcher({ disabled = false, onBeforeChange }: BuildingS
     const nextIndex = BUILDING_OPTIONS.findIndex((building) => building.id === buildingId);
     if (nextIndex < 0) return;
     onBeforeChange?.();
+    emitInteractionFeedback('buildingSwitch');
     setActiveBuildingId(buildingId);
-    void Haptics.selectionAsync();
     const building = BUILDING_OPTIONS[nextIndex];
     void AccessibilityInfo.announceForAccessibility(
       `${building.name}, building ${nextIndex + 1} of ${BUILDING_OPTIONS.length}`,
