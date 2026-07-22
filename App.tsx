@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DeferredInteractionSoundPlayer } from './src/audio/DeferredInteractionSoundPlayer';
 import { RoomCanvas } from './src/components/room/RoomCanvas';
+import { AppErrorBoundary } from './src/components/ui/AppErrorBoundary';
 import { EditorOverlay } from './src/components/ui/EditorOverlay';
 import { WelcomeGuide } from './src/components/ui/WelcomeGuide';
 import WeatherOverlay from './src/components/weather/WeatherOverlay';
@@ -16,7 +17,7 @@ import { useRoomPersistence } from './src/store/roomPersistence';
 import { useRoomStore } from './src/store/roomStore';
 import { palette } from './src/theme/palette';
 
-export default function App() {
+function AppContent() {
   const [fontsLoaded] = useFonts({ Nunito_700Bold, Nunito_800ExtraBold });
   const [ambienceOn, setAmbienceOn] = useState(false);
   const isHydrated = useRoomStore((state) => state.isHydrated);
@@ -61,6 +62,14 @@ export default function App() {
         </View>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+export default function App() {
+  return (
+    <AppErrorBoundary>
+      <AppContent />
+    </AppErrorBoundary>
   );
 }
 

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { buildingById } from '../../domain/buildings';
 import { FLOOR_TOP, ROOM_SIZE } from '../../domain/grid';
 import { applyCatalogMaterialPolicy } from '../models/catalogMaterialPolicy';
-import { useMeshoptGLTF } from '../models/useMeshoptGLTF';
+import { useModelGLTF } from '../models/useModelGLTF';
 import { PlacementZoneTargets } from './PlacementZoneTargets';
 
 const BUILDING_ID = 'arched-atrium' as const;
@@ -75,7 +75,7 @@ export function ArchedAtriumShell() {
     throw new Error('Arched Atrium building asset is missing.');
   }
 
-  const gltf = useMeshoptGLTF(building.asset);
+  const gltf = useModelGLTF(building.asset);
   const normalized = useMemo(() => normalizeBuilding(gltf.scene), [gltf.scene]);
 
   useEffect(() => {

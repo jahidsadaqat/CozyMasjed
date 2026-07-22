@@ -24,6 +24,7 @@ workflows:
       - name: Validate project
         script: |
           npm run typecheck
+          npm run models:check-native
           npx expo-doctor
       - name: Generate iOS native project
         script: EXPO_NO_GIT_STATUS=1 npx expo prebuild --platform ios --clean --no-install

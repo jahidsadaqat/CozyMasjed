@@ -5,7 +5,7 @@ import type { AssetCatalogItem } from '../../catalog/types';
 import { weatherVisualProfiles } from '../../domain/weather';
 import { useRoomStore } from '../../store/roomStore';
 import { applyCatalogMaterialPolicy } from './catalogMaterialPolicy';
-import { useMeshoptGLTF } from './useMeshoptGLTF';
+import { useModelGLTF } from './useModelGLTF';
 
 type CatalogModelProps = {
   item: AssetCatalogItem;
@@ -63,7 +63,7 @@ export function CatalogModel({
   placedItemId,
   enablePointLight = true,
 }: CatalogModelProps) {
-  const gltf = useMeshoptGLTF(item.asset);
+  const gltf = useModelGLTF(item.asset);
   const weather = useRoomStore((state) => state.weather);
   const lampsActive = weatherVisualProfiles[weather].lampsActive;
   const mountsToWall = !item.allowedSurfaces.includes('floor');
