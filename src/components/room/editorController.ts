@@ -19,8 +19,11 @@ import {
   DEFAULT_CAMERA_ZOOM,
 } from '../../domain/camera';
 import {
+  DEFAULT_PLACEMENT_LEVEL,
+  isPlacementLevel,
   placementToWorld,
   worldToPlacement,
+  type PlacementLevel,
   type PlacedItem,
 } from '../../domain/grid';
 import { useRoomStore } from '../../store/roomStore';
@@ -49,6 +52,7 @@ function findTaggedParent(
     | 'placedItemId'
     | 'placementPreviewId'
     | 'placementSurface'
+    | 'placementLevel'
     | 'attachmentHostId'
     | 'attachmentSlotId',
 ) {
@@ -71,7 +75,10 @@ function attachmentSlotHit(
     const slotId = findTaggedParent(hit.object, 'attachmentSlotId');
     if (!hostId || !slotId) continue;
     const host = placedItems.find((item) => item.id === hostId);
-    if (host && canAttachToSlot(child, host, slotId, placedItems, ignoredItemId)) {
+    if (
+      host &&
+      canAttachToSlot({ ...child, level: host.level }, host, slotId, placedItems, ignoredItemId)
+    ) {
       return { hostId, slotId };
     }
   }
@@ -101,10 +108,22 @@ function findPlacementPreviewId(hits: THREE.Intersection[]) {
   return null;
 }
 
-function surfaceHit(hits: THREE.Intersection[], accepted?: readonly PlacementSurface[]) {
+function surfaceHit(
+  hits: THREE.Intersection[],
+  accepted?: readonly PlacementSurface[],
+  requiredLevel?: PlacementLevel,
+) {
   for (const hit of hits) {
     const surface = findTaggedParent(hit.object, 'placementSurface') as PlacementSurface | null;
-    if (surface && (!accepted || accepted.includes(surface))) return { surface, point: hit.point };
+    const storedLevel = findTaggedParent(hit.object, 'placementLevel');
+    const level = isPlacementLevel(storedLevel) ? storedLevel : DEFAULT_PLACEMENT_LEVEL;
+    if (
+      surface &&
+      (!accepted || accepted.includes(surface)) &&
+      (!requiredLevel || requiredLevel === level)
+    ) {
+      return { surface, level, point: hit.point };
+    }
   }
   return null;
 }
@@ -127,6 +146,9 @@ function updatePlacementFromPointer(x: number, y: number) {
         ...preview.item,
         rotation,
         surface: 'floor',
+        level: host?.level ?? preview.item.level,
+        gridX: host?.gridX ?? preview.item.gridX,
+        gridY: host?.gridY ?? preview.item.gridY,
         attachment: { hostItemId: slotHit.hostId, slotId: slotHit.slotId },
       });
       return useRoomStore.getState().placementPreview?.valid ?? false;
@@ -143,6 +165,8 @@ function updatePlacementFromPointer(x: number, y: number) {
   const anchor = worldToPlacement(
     hit.point,
     catalogItem,
+    preview.item.buildingId,
+    hit.level,
     hit.surface,
     rotation,
     hit.surface !== 'floor',
@@ -213,7 +237,7 @@ function beginItemDrag(placedId: string, x: number, y: number) {
     return true;
   }
 
-  const hit = surfaceHit(hits, [placed.surface]);
+  const hit = surfaceHit(hits, [placed.surface], placed.level);
   if (!hit) return false;
   const [worldX, worldY, worldZ] = placementToWorld(placed, catalogItem);
   dragGrabOffset = hit.point.clone().sub(new THREE.Vector3(worldX, worldY, worldZ));
@@ -242,6 +266,9 @@ function updateItemDrag(x: number, y: number) {
         ...preview.item,
         rotation,
         surface: 'floor',
+        level: host?.level ?? preview.item.level,
+        gridX: host?.gridX ?? preview.item.gridX,
+        gridY: host?.gridY ?? preview.item.gridY,
         attachment: { hostItemId: slotHit.hostId, slotId: slotHit.slotId },
       });
       return;
@@ -257,7 +284,14 @@ function updateItemDrag(x: number, y: number) {
   const rotation = sourceItem.attachment
     ? worldItemRotation(sourceItem, store.placedItems)
     : sourceItem.rotation;
-  const anchor = worldToPlacement(desired, catalogItem, activeDragSurface, rotation);
+  const anchor = worldToPlacement(
+    desired,
+    catalogItem,
+    preview.item.buildingId,
+    hit.level,
+    activeDragSurface,
+    rotation,
+  );
   const candidate: PlacedItem = { ...preview.item, ...anchor, rotation, attachment: undefined };
   store.previewMove(candidate);
 }
@@ -301,9 +335,10 @@ function pointOnCameraPlane(x: number, y: number, target: THREE.Vector3, result:
 }
 
 function keepTargetInsideRoom(target: THREE.Vector3) {
-  target.x = THREE.MathUtils.clamp(target.x, -0.82, 0.82);
-  target.y = THREE.MathUtils.clamp(target.y, 1.47, 2.17);
-  target.z = THREE.MathUtils.clamp(target.z, -0.82, 0.82);
+  const isAtrium = useRoomStore.getState().activeBuildingId === 'arched-atrium';
+  target.x = THREE.MathUtils.clamp(target.x, isAtrium ? -1.15 : -0.82, isAtrium ? 1.15 : 0.82);
+  target.y = THREE.MathUtils.clamp(target.y, 1.47, isAtrium ? 2.85 : 2.17);
+  target.z = THREE.MathUtils.clamp(target.z, isAtrium ? -1.2 : -0.82, 0.82);
 }
 
 export function prepareEditorPan(x: number, y: number) {

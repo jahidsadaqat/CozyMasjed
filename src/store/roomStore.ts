@@ -5,13 +5,15 @@ import { CAMERA_TARGET, DEFAULT_CAMERA_YAW, DEFAULT_CAMERA_ZOOM } from '../domai
 import { canAttachToSlot, getAttachmentSlot } from '../domain/attachments';
 import { defaultBuildingId, type BuildingId } from '../domain/buildings';
 import {
+  DEFAULT_PLACEMENT_LEVEL,
+  getPlacementGrid,
+  getPlacementLevels,
   getPlacementSize,
-  GRID_SIZE,
   isWithinGrid,
   nearbyAnchors,
   placementsOverlap,
   rotateAroundCenter,
-  WALL_ROWS,
+  type PlacementLevel,
   type PlacedItem,
   type QuarterTurn,
 } from '../domain/grid';
@@ -83,7 +85,13 @@ export type RoomState = RoomSnapshot & {
   invalidatePlacementPreview: () => void;
   commitPlacementPreview: () => boolean;
   selectItem: (id: string | null) => void;
-  placeCatalogItem: (catalogId: string, gridX: number, gridY: number, surface: PlacementSurface) => boolean;
+  placeCatalogItem: (
+    catalogId: string,
+    gridX: number,
+    gridY: number,
+    surface: PlacementSurface,
+    level?: PlacementLevel,
+  ) => boolean;
   beginDrag: (id: string) => void;
   previewMove: (candidate: PlacedItem) => void;
   invalidateDragPreview: () => void;
@@ -161,6 +169,7 @@ export function roomSnapshotsEqual(a: RoomSnapshot, b: RoomSnapshot) {
       item.gridY === other.gridY &&
       item.rotation === other.rotation &&
       item.surface === other.surface &&
+      item.level === other.level &&
       item.attachment?.hostItemId === other.attachment?.hostItemId &&
       item.attachment?.slotId === other.attachment?.slotId
     );
@@ -201,30 +210,33 @@ function makeInitialPlacementPreview(
   const id = makePlacedId(catalogId);
   let fallback: PlacedItem | null = null;
 
-  for (const surface of catalogItem.allowedSurfaces) {
-    const size = getPlacementSize(catalogItem, surface, 0);
-    const rowCount = surface === 'floor' ? GRID_SIZE : WALL_ROWS;
-    const maxX = GRID_SIZE - size.width;
-    const maxY = rowCount - size.height;
-    if (maxX < 0 || maxY < 0) continue;
+  for (const level of getPlacementLevels(buildingId)) {
+    for (const surface of catalogItem.allowedSurfaces) {
+      const grid = getPlacementGrid(buildingId, level, surface);
+      if (!grid) continue;
+      const size = getPlacementSize(catalogItem, surface, 0);
+      const maxX = grid.columns - size.width;
+      const maxY = grid.rows - size.height;
+      if (maxX < 0 || maxY < 0) continue;
 
-    const centerX = maxX / 2;
-    const centerY = maxY / 2;
-    const candidates: PlacedItem[] = [];
-    for (let gridY = 0; gridY <= maxY; gridY += 1) {
-      for (let gridX = 0; gridX <= maxX; gridX += 1) {
-        candidates.push({ id, buildingId, catalogId, gridX, gridY, rotation: 0, surface });
+      const centerX = maxX / 2;
+      const centerY = maxY / 2;
+      const candidates: PlacedItem[] = [];
+      for (let gridY = 0; gridY <= maxY; gridY += 1) {
+        for (let gridX = 0; gridX <= maxX; gridX += 1) {
+          candidates.push({ id, buildingId, catalogId, gridX, gridY, rotation: 0, surface, level });
+        }
       }
-    }
-    candidates.sort((a, b) => {
-      const distanceA = (a.gridX - centerX) ** 2 + (a.gridY - centerY) ** 2;
-      const distanceB = (b.gridX - centerX) ** 2 + (b.gridY - centerY) ** 2;
-      return distanceA - distanceB;
-    });
+      candidates.sort((a, b) => {
+        const distanceA = (a.gridX - centerX) ** 2 + (a.gridY - centerY) ** 2;
+        const distanceB = (b.gridX - centerX) ** 2 + (b.gridY - centerY) ** 2;
+        return distanceA - distanceB;
+      });
 
-    fallback ??= candidates[0] ?? null;
-    const validCandidate = candidates.find((candidate) => isValidPlacement(candidate, placedItems));
-    if (validCandidate) return { item: validCandidate, valid: true };
+      fallback ??= candidates[0] ?? null;
+      const validCandidate = candidates.find((candidate) => isValidPlacement(candidate, placedItems));
+      if (validCandidate) return { item: validCandidate, valid: true };
+    }
   }
 
   return fallback ? { item: fallback, valid: false } : null;
@@ -361,7 +373,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
       ) return;
       set({ selectedItemId, placingCatalogId: null, placementPreview: null, draggingItemId: null, dragPreview: null });
     },
-    placeCatalogItem: (catalogId, gridX, gridY, surface) => {
+    placeCatalogItem: (catalogId, gridX, gridY, surface, level = DEFAULT_PLACEMENT_LEVEL) => {
       const state = get();
       const candidate: PlacedItem = {
         id: makePlacedId(catalogId),
@@ -371,6 +383,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
         gridY,
         rotation: 0,
         surface,
+        level,
       };
       if (!isValidPlacement(candidate, state.placedItems)) return false;
       return commitRoom(
@@ -417,9 +430,18 @@ export const useRoomStore = create<RoomState>((set, get) => {
       return commitRoom(
         {
           ...readRoomSnapshot(state),
-          placedItems: state.placedItems.map((item) =>
-            item.id === state.draggingItemId ? { ...state.dragPreview!.item } : { ...item },
-          ),
+          placedItems: state.placedItems.map((item) => {
+            if (item.id === state.draggingItemId) return { ...state.dragPreview!.item };
+            if (item.attachment?.hostItemId === state.draggingItemId) {
+              return {
+                ...item,
+                level: state.dragPreview!.item.level,
+                gridX: state.dragPreview!.item.gridX,
+                gridY: state.dragPreview!.item.gridY,
+              };
+            }
+            return { ...item };
+          }),
         },
         { dragPreview: null, draggingItemId: null },
       );

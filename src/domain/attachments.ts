@@ -26,6 +26,7 @@ export function canAttachToSlot(
     !childCatalog?.attachmentRole ||
     !slot?.accepts.includes(childCatalog.attachmentRole) ||
     child.buildingId !== host.buildingId ||
+    child.level !== host.level ||
     host.id === child.id ||
     host.attachment ||
     host.surface !== 'floor'

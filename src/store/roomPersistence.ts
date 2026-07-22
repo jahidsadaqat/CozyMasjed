@@ -9,6 +9,8 @@ import {
   type BuildingId,
 } from '../domain/buildings';
 import {
+  DEFAULT_PLACEMENT_LEVEL,
+  isPlacementLevel,
   isWithinGrid,
   placementsOverlap,
   type PlacedItem,
@@ -30,13 +32,22 @@ import {
   useRoomStore,
 } from './roomStore';
 
-const STORAGE_KEY = 'deen-rooms:room:v5';
+const STORAGE_KEY = 'deen-rooms:room:v6';
+const LEGACY_V5_STORAGE_KEY = 'deen-rooms:room:v5';
 const LEGACY_V4_STORAGE_KEY = 'deen-rooms:room:v4';
 const LEGACY_V3_STORAGE_KEY = 'deen-rooms:room:v3';
 const LEGACY_V2_STORAGE_KEY = 'deen-rooms:room:v2';
 const LEGACY_V1_STORAGE_KEY = 'deen-rooms:room:v1';
-const STORAGE_VERSION = 5;
-const LEGACY_STORAGE_VERSIONS = [1, 2, 3, 4] as const;
+const STORAGE_VERSION = 6;
+const LEGACY_STORAGE_VERSIONS = [1, 2, 3, 4, 5] as const;
+const STORAGE_KEYS = [
+  STORAGE_KEY,
+  LEGACY_V5_STORAGE_KEY,
+  LEGACY_V4_STORAGE_KEY,
+  LEGACY_V3_STORAGE_KEY,
+  LEGACY_V2_STORAGE_KEY,
+  LEGACY_V1_STORAGE_KEY,
+] as const;
 const MAX_PERSISTED_ITEMS = 128;
 const WRITE_DEBOUNCE_MS = 300;
 
@@ -87,6 +98,7 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
     gridY,
     rotation,
     surface,
+    level: storedLevel,
     attachment: storedAttachment,
   } = value;
   const catalogId = typeof storedCatalogId === 'string'
@@ -97,8 +109,14 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
     : isBuildingId(storedBuildingId)
       ? storedBuildingId
       : null;
+  const level = storedLevel === undefined
+    ? DEFAULT_PLACEMENT_LEVEL
+    : isPlacementLevel(storedLevel)
+      ? storedLevel
+      : null;
   if (
     !buildingId ||
+    !level ||
     typeof id !== 'string' ||
     id.length === 0 ||
     typeof catalogId !== 'string' ||
@@ -118,6 +136,7 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
     gridY: gridY as number,
     rotation,
     surface,
+    level,
   };
   if (storedAttachment !== undefined) {
     if (
@@ -353,34 +372,18 @@ export function useRoomPersistence() {
 
     const restore = async () => {
       try {
-        const currentRaw = await AsyncStorage.getItem(STORAGE_KEY);
-        const currentStoredRoom = parseStoredRoom(currentRaw);
-        const legacyV4Raw = currentStoredRoom ? null : await AsyncStorage.getItem(LEGACY_V4_STORAGE_KEY);
-        const legacyV4StoredRoom = parseStoredRoom(legacyV4Raw);
-        const legacyV3Raw = currentStoredRoom || legacyV4StoredRoom
-          ? null
-          : await AsyncStorage.getItem(LEGACY_V3_STORAGE_KEY);
-        const legacyV3StoredRoom = parseStoredRoom(legacyV3Raw);
-        const legacyV2Raw = currentStoredRoom || legacyV4StoredRoom || legacyV3StoredRoom
-          ? null
-          : await AsyncStorage.getItem(LEGACY_V2_STORAGE_KEY);
-        const legacyV2StoredRoom = parseStoredRoom(legacyV2Raw);
-        const legacyV1Raw = currentStoredRoom || legacyV4StoredRoom || legacyV3StoredRoom || legacyV2StoredRoom
-          ? null
-          : await AsyncStorage.getItem(LEGACY_V1_STORAGE_KEY);
-        const legacyV1StoredRoom = parseStoredRoom(legacyV1Raw);
-        const raw = currentStoredRoom
-          ? currentRaw
-          : legacyV4StoredRoom
-            ? legacyV4Raw
-            : legacyV3StoredRoom
-              ? legacyV3Raw
-              : legacyV2StoredRoom
-                ? legacyV2Raw
-                : legacyV1Raw;
+        let raw: string | null = null;
+        let storedRoom: ParsedStoredRoom | null = null;
+        for (const key of STORAGE_KEYS) {
+          const candidateRaw = await AsyncStorage.getItem(key);
+          const candidate = parseStoredRoom(candidateRaw);
+          if (!candidate) continue;
+          raw = candidateRaw;
+          storedRoom = candidate;
+          break;
+        }
         restoredRaw = raw;
         if (disposed) return;
-        const storedRoom = currentStoredRoom ?? legacyV4StoredRoom ?? legacyV3StoredRoom ?? legacyV2StoredRoom ?? legacyV1StoredRoom;
         if (__DEV__) console.info(`[Deen Rooms] restore found ${storedRoom?.room.placedItems.length ?? 0} item(s)`);
         if (storedRoom) {
           restoredSnapshot = true;

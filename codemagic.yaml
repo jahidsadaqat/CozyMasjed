@@ -12,10 +12,11 @@ workflows:
       vars:
         BUNDLE_ID: "com.cozymasjid.app"
         APP_STORE_APPLE_ID: "6792915678"
+        XCODE_PROJECT: "CozyMasjid.xcodeproj"
         XCODE_WORKSPACE: "CozyMasjid.xcworkspace"
         XCODE_SCHEME: "CozyMasjid"
-      node: 24.17.0
-      xcode: 26.6
+      node: "24.17.0"
+      xcode: "26.6"
       cocoapods: default
     scripts:
       - name: Install JavaScript dependencies
@@ -29,13 +30,11 @@ workflows:
       - name: Install CocoaPods dependencies
         script: cd ios && pod install
       - name: Apply App Store signing profiles
-        script: xcode-project use-profiles
+        script: xcode-project use-profiles --project "$CM_BUILD_DIR/ios/$XCODE_PROJECT"
       - name: Set next Apple build number
         script: |
-          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || true)
-          if [ -z "$LATEST_BUILD_NUMBER" ]; then
-            LATEST_BUILD_NUMBER=0
-          fi
+          set -e
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID")
           cd "$CM_BUILD_DIR/ios"
           agvtool new-version -all "$((LATEST_BUILD_NUMBER + 1))"
       - name: Build signed IPA
@@ -48,3 +47,9 @@ workflows:
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Upload the IPA to App Store Connect without submitting it for review.
+        submit_to_testflight: false
+        submit_to_app_store: false

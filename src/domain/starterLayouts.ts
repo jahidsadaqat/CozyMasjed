@@ -1,9 +1,15 @@
 import type { BuildingId } from './buildings';
-import type { PlacedItem } from './grid';
+import { DEFAULT_PLACEMENT_LEVEL, type PlacedItem } from './grid';
 
 export const STARTER_LAYOUT_REVISION = 4;
 
-const cozyMasjid: readonly PlacedItem[] = [
+type StarterPlacedItem = Omit<PlacedItem, 'level'> & { level?: PlacedItem['level'] };
+
+function withDefaultLevel(items: readonly StarterPlacedItem[]): readonly PlacedItem[] {
+  return items.map((item) => ({ ...item, level: item.level ?? DEFAULT_PLACEMENT_LEVEL }));
+}
+
+const cozyMasjid: readonly StarterPlacedItem[] = [
   { id: 'starter-v1-cozy-floor-lamp', buildingId: 'cozy-masjid', catalogId: 'imported-model-40', gridX: 0, gridY: 3, rotation: 0, surface: 'floor' },
   { id: 'starter-v1-cozy-sconce', buildingId: 'cozy-masjid', catalogId: 'imported-model-39', gridX: 2, gridY: 1, rotation: 0, surface: 'wallL' },
   { id: 'starter-v1-cozy-fanous', buildingId: 'cozy-masjid', catalogId: 'fanous-lantern', gridX: 7, gridY: 4, rotation: 0, surface: 'floor' },
@@ -41,7 +47,7 @@ const cozyMasjid: readonly PlacedItem[] = [
   },
 ];
 
-const archedAtrium: readonly PlacedItem[] = [
+const archedAtrium: readonly StarterPlacedItem[] = [
   { id: 'starter-v1-atrium-floor-lamp', buildingId: 'arched-atrium', catalogId: 'imported-model-40', gridX: 7, gridY: 3, rotation: 0, surface: 'floor' },
   { id: 'starter-v1-atrium-sconce', buildingId: 'arched-atrium', catalogId: 'imported-model-39', gridX: 7, gridY: 1, rotation: 0, surface: 'wallR' },
   { id: 'starter-v1-atrium-fanous', buildingId: 'arched-atrium', catalogId: 'fanous-lantern', gridX: 2, gridY: 3, rotation: 0, surface: 'floor' },
@@ -66,6 +72,6 @@ const archedAtrium: readonly PlacedItem[] = [
 ];
 
 export const starterLayouts: Readonly<Record<BuildingId, readonly PlacedItem[]>> = {
-  'cozy-masjid': cozyMasjid,
-  'arched-atrium': archedAtrium,
+  'cozy-masjid': withDefaultLevel(cozyMasjid),
+  'arched-atrium': withDefaultLevel(archedAtrium),
 };

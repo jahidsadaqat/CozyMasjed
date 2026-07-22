@@ -1,12 +1,14 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { buildingById } from '../../domain/buildings';
-import { FLOOR_TOP, ROOM_SIZE, WALL_INSET } from '../../domain/grid';
+import { FLOOR_TOP, ROOM_SIZE, UPPER_FLOOR_TOP, WALL_INSET } from '../../domain/grid';
 import { applyCatalogMaterialPolicy } from '../models/catalogMaterialPolicy';
 import { useMeshoptGLTF } from '../models/useMeshoptGLTF';
 
 const BUILDING_ID = 'arched-atrium' as const;
 const WALL_HEIGHT = 2.2;
+const UPPER_WALL_CENTER_Y = 2.83145;
+const UPPER_WALL_HEIGHT = 1.52427;
 // The raw bounding-box minimum belongs to the lower exterior trim. The broad
 // walkable floor is 0.0884 model units higher, so compensate after scaling or
 // placed furniture would be hidden inside the visible floor.
@@ -75,7 +77,7 @@ function PlacementSurfaces() {
       <mesh
         position={[0, FLOOR_TOP - 0.005, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
-        userData={{ placementSurface: 'floor' }}
+        userData={{ placementSurface: 'floor', placementLevel: 'ground' }}
       >
         <planeGeometry args={[ROOM_SIZE, ROOM_SIZE]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
@@ -83,7 +85,7 @@ function PlacementSurfaces() {
       <mesh
         position={[WALL_INSET, WALL_HEIGHT / 2, 0]}
         rotation={[0, Math.PI / 2, 0]}
-        userData={{ placementSurface: 'wallL' }}
+        userData={{ placementSurface: 'wallL', placementLevel: 'ground' }}
       >
         <planeGeometry args={[ROOM_SIZE, WALL_HEIGHT]} />
         <meshBasicMaterial
@@ -96,9 +98,50 @@ function PlacementSurfaces() {
       </mesh>
       <mesh
         position={[0, WALL_HEIGHT / 2, WALL_INSET]}
-        userData={{ placementSurface: 'wallR' }}
+        userData={{ placementSurface: 'wallR', placementLevel: 'ground' }}
       >
         <planeGeometry args={[ROOM_SIZE, WALL_HEIGHT]} />
+        <meshBasicMaterial
+          transparent
+          opacity={0}
+          depthWrite={false}
+          colorWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh
+        position={[0.01356, UPPER_FLOOR_TOP, -1.10256]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        userData={{ placementSurface: 'floor', placementLevel: 'upper' }}
+      >
+        <planeGeometry args={[3.75359, 1.52241]} />
+        <meshBasicMaterial
+          transparent
+          opacity={0}
+          depthWrite={false}
+          colorWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh
+        position={[-1.869, UPPER_WALL_CENTER_Y, -1.10256]}
+        rotation={[0, Math.PI / 2, 0]}
+        userData={{ placementSurface: 'wallL', placementLevel: 'upper' }}
+      >
+        <planeGeometry args={[1.52241, UPPER_WALL_HEIGHT]} />
+        <meshBasicMaterial
+          transparent
+          opacity={0}
+          depthWrite={false}
+          colorWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh
+        position={[0.01356, UPPER_WALL_CENTER_Y, -1.869]}
+        userData={{ placementSurface: 'wallR', placementLevel: 'upper' }}
+      >
+        <planeGeometry args={[3.75359, UPPER_WALL_HEIGHT]} />
         <meshBasicMaterial
           transparent
           opacity={0}

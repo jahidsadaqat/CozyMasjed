@@ -67,7 +67,11 @@ export function RoomShell({ floorColor, wallColor, accentColor }: RoomShellProps
 
   return (
     <group>
-      <mesh position={[0, 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]} userData={{ placementSurface: 'floor' }}>
+      <mesh
+        position={[0, 0.035, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        userData={{ placementSurface: 'floor', placementLevel: 'ground' }}
+      >
         <planeGeometry args={[4.4, 4.4]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
@@ -75,11 +79,14 @@ export function RoomShell({ floorColor, wallColor, accentColor }: RoomShellProps
         geometry={leftWallHitGeometry}
         position={[-2.038, -0.04, 0]}
         rotation={[0, Math.PI / 2, 0]}
-        userData={{ placementSurface: 'wallL' }}
+        userData={{ placementSurface: 'wallL', placementLevel: 'ground' }}
       >
         <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position={[0, 1.1, -2.038]} userData={{ placementSurface: 'wallR' }}>
+      <mesh
+        position={[0, 1.1, -2.038]}
+        userData={{ placementSurface: 'wallR', placementLevel: 'ground' }}
+      >
         <planeGeometry args={[4.4, 2.2]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>

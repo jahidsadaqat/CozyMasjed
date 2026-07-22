@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { catalogById } from '../../catalog/catalog';
 import { BlobShadow } from '../BlobShadow';
 import { attachmentSlotHitWorldPosition, resolveItemTransform } from '../../domain/attachments';
-import { CELL_SIZE, getPlacementSize, type PlacedItem } from '../../domain/grid';
+import { CELL_SIZE, getPlacementGrid, getPlacementSize, type PlacedItem } from '../../domain/grid';
 import { useRoomStore } from '../../store/roomStore';
 import { CatalogItemModel } from '../models/CatalogItemModel';
 
@@ -95,8 +95,11 @@ function SelectionFootprint({
   const resolved = resolveItemTransform(item, items, dragPreview);
   const [x, y, z] = resolved.position;
   const size = getPlacementSize(catalogItem, item.surface, item.rotation);
+  const placementGrid = getPlacementGrid(item.buildingId, item.level, item.surface);
+  const columnSize = placementGrid?.cellSize ?? CELL_SIZE;
+  const rowSize = placementGrid?.rowSize ?? columnSize;
   const color = invalid ? '#D96F66' : '#C2BEC8';
-  const baseRadius = (Math.max(size.width, size.height) * CELL_SIZE) / 2;
+  const baseRadius = Math.max(size.width * columnSize, size.height * rowSize) / 2;
   const radius = baseRadius + (item.surface === 'floor' ? 0.24 : 0.07);
 
   if (item.surface === 'floor') {
@@ -116,7 +119,7 @@ function SelectionFootprint({
     );
   }
 
-  const centerY = y + (size.height * CELL_SIZE) / 2;
+  const centerY = y + (size.height * rowSize) / 2;
   const position: [number, number, number] = item.surface === 'wallL' ? [x + 0.018, centerY, z] : [x, centerY, z + 0.018];
   const rotation: [number, number, number] = item.surface === 'wallL' ? [0, Math.PI / 2, 0] : [0, 0, 0];
   return (
