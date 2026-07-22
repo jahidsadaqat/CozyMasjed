@@ -1,7 +1,8 @@
 import { useLoader } from '@react-three/fiber/native';
 import { Asset } from 'expo-asset';
 import { use } from 'react';
-import { GLTFLoader } from 'three-stdlib';
+
+import { NativeGLTFLoader } from './NativeGLTFLoader';
 
 type ModelAssetModule = number | string;
 
@@ -41,5 +42,5 @@ export function useModelGLTF(assetModule: ModelAssetModule) {
 
   // Optimized app assets are decoded at build time. Keeping them free of
   // EXT_meshopt_compression avoids a WebAssembly requirement in native Hermes.
-  return useLoader(GLTFLoader, uri);
+  return useLoader(NativeGLTFLoader, uri);
 }

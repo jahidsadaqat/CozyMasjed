@@ -17,6 +17,10 @@ const modelLoaderPath = path.resolve(
   sourceRoot,
   'components/models/useModelGLTF.ts',
 );
+const nativeLoaderPath = path.resolve(
+  sourceRoot,
+  'components/models/NativeGLTFLoader.ts',
+);
 
 async function listModels(directory) {
   const entries = await fs.readdir(directory, { withFileTypes: true });
@@ -48,7 +52,9 @@ async function listTypeScriptSources(directory) {
 
 async function checkNativeModelLoader(failures) {
   const loaderSource = await fs.readFile(modelLoaderPath, 'utf8');
+  const nativeLoaderSource = await fs.readFile(nativeLoaderPath, 'utf8');
   const loaderRelativePath = path.relative(projectRoot, modelLoaderPath);
+  const nativeLoaderRelativePath = path.relative(projectRoot, nativeLoaderPath);
 
   // Metro returns a numeric module ID for require('./model.glb') on native.
   // GLTFLoader only accepts a URL string, so every model ID must first pass
@@ -81,12 +87,67 @@ async function checkNativeModelLoader(failures) {
   }
 
   if (
-    /useLoader\s*\(\s*GLTFLoader\s*,\s*asset(?:\s|,|\)|as\b)/u.test(
+    /useLoader\s*\(\s*(?:GLTFLoader|NativeGLTFLoader)\s*,\s*asset(?:\s|,|\)|as\b)/u.test(
       loaderSource,
     )
   ) {
     failures.push(
       `${loaderRelativePath}: do not pass a raw Metro asset ID to GLTFLoader`,
+    );
+  }
+
+  if (!/from\s+['"]expo-file-system['"]/u.test(nativeLoaderSource)) {
+    failures.push(
+      `${nativeLoaderRelativePath}: native GLBs must be read with Expo FileSystem's binary API`,
+    );
+  }
+
+  if (!/\.\s*base64\s*\(/u.test(nativeLoaderSource)) {
+    failures.push(
+      `${nativeLoaderRelativePath}: bundled iOS GLBs must use Expo File.base64() for read-only access`,
+    );
+  }
+
+  if (!/\btoByteArray\s*\(/u.test(nativeLoaderSource)) {
+    failures.push(
+      `${nativeLoaderRelativePath}: decode the native base64 read into binary bytes before parsing`,
+    );
+  }
+
+  if (/\.\s*(?:bytes|arrayBuffer)\s*\(/u.test(nativeLoaderSource)) {
+    failures.push(
+      `${nativeLoaderRelativePath}: Expo SDK 57 iOS bytes()/arrayBuffer() incorrectly require write access for bundled files`,
+    );
+  }
+
+  if (
+    !/\bbyteOffset\b/u.test(nativeLoaderSource) ||
+    !/\bbyteLength\b/u.test(nativeLoaderSource)
+  ) {
+    failures.push(
+      `${nativeLoaderRelativePath}: slice the byte view to its exact offset and length before parsing`,
+    );
+  }
+
+  if (/\bBuffer\s*\.\s*from\s*\(/u.test(nativeLoaderSource)) {
+    failures.push(
+      `${nativeLoaderRelativePath}: do not expose a Buffer backing store to GLTFLoader`,
+    );
+  }
+
+  if (
+    !/from\s+['"]three\/addons\/loaders\/GLTFLoader\.js['"]/u.test(
+      nativeLoaderSource,
+    )
+  ) {
+    failures.push(
+      `${nativeLoaderRelativePath}: use Three's version-matched GLTFLoader for native WebP textures`,
+    );
+  }
+
+  if (/from\s+['"]three-stdlib['"]/u.test(nativeLoaderSource)) {
+    failures.push(
+      `${nativeLoaderRelativePath}: three-stdlib's WebP feature detection requires a browser Image global`,
     );
   }
 
@@ -162,6 +223,22 @@ for (const file of files) {
     );
   }
 
+  for (const [index, buffer] of (json.buffers ?? []).entries()) {
+    if (typeof buffer.uri === 'string') {
+      failures.push(
+        `${relativePath}: buffer ${index} is external; native models must be self-contained GLBs`,
+      );
+    }
+  }
+
+  for (const [index, image] of (json.images ?? []).entries()) {
+    if (typeof image.uri === 'string') {
+      failures.push(
+        `${relativePath}: image ${index} is external; native models must embed textures as buffer views`,
+      );
+    }
+  }
+
   if (bytes.byteLength > budget) {
     failures.push(
       `${relativePath}: ${(bytes.byteLength / MEBIBYTE).toFixed(2)} MB exceeds the ${(budget / MEBIBYTE).toFixed(0)} MB mobile budget`,
@@ -180,5 +257,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Native model preflight passed: ${files.length} GLBs, ${(totalBytes / MEBIBYTE).toFixed(2)} MB, native asset URI loader verified, no runtime Meshopt.`,
+  `Native model preflight passed: ${files.length} GLBs, ${(totalBytes / MEBIBYTE).toFixed(2)} MB, exact-byte native loader and embedded textures verified, no runtime Meshopt.`,
 );
