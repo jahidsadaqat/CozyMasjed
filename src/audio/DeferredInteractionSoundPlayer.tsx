@@ -1,0 +1,86 @@
+import { requireOptionalNativeModule } from 'expo-modules-core';
+import {
+  Component,
+  type ComponentType,
+  type ErrorInfo,
+  type ReactNode,
+  useEffect,
+  useState,
+} from 'react';
+import { Platform } from 'react-native';
+import { subscribeToInteractionFeedback } from '../feedback/interactionFeedbackEvents';
+
+type SoundPlayerProps = {
+  enabled: boolean;
+};
+
+type SoundBoundaryProps = {
+  children: ReactNode;
+};
+
+type SoundBoundaryState = {
+  failed: boolean;
+};
+
+class SoundBoundary extends Component<SoundBoundaryProps, SoundBoundaryState> {
+  state: SoundBoundaryState = { failed: false };
+
+  static getDerivedStateFromError(): SoundBoundaryState {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown, info: ErrorInfo) {
+    if (__DEV__) {
+      console.warn('Interaction audio was disabled after an initialization error.', error, info);
+    }
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+/**
+ * Audio is intentionally loaded only after the first sound-producing gesture.
+ * A missing or failing native audio module must never prevent the room from opening.
+ */
+export function DeferredInteractionSoundPlayer({ enabled }: SoundPlayerProps) {
+  const [SoundPlayer, setSoundPlayer] = useState<ComponentType<SoundPlayerProps> | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
+
+  useEffect(() => {
+    if (!enabled || SoundPlayer || unavailable) return;
+
+    let cancelled = false;
+    let loading = false;
+
+    return subscribeToInteractionFeedback((signal) => {
+      if (!signal.sound || loading) return;
+      loading = true;
+
+      if (Platform.OS !== 'web' && !requireOptionalNativeModule('ExpoAudio')) {
+        if (!cancelled) setUnavailable(true);
+        return;
+      }
+
+      void import('./InteractionSoundPlayer')
+        .then((module) => {
+          if (!cancelled) setSoundPlayer(() => module.InteractionSoundPlayer);
+        })
+        .catch((error: unknown) => {
+          if (__DEV__) {
+            console.warn('Interaction audio could not be loaded and has been disabled.', error);
+          }
+          if (!cancelled) setUnavailable(true);
+        });
+    });
+  }, [enabled, SoundPlayer, unavailable]);
+
+  if (!enabled || !SoundPlayer || unavailable) return null;
+
+  return (
+    <SoundBoundary>
+      <SoundPlayer enabled />
+    </SoundBoundary>
+  );
+}

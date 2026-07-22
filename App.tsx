@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { InteractionSoundPlayer } from './src/audio/InteractionSoundPlayer';
+import { DeferredInteractionSoundPlayer } from './src/audio/DeferredInteractionSoundPlayer';
 import { RoomCanvas } from './src/components/room/RoomCanvas';
 import { EditorOverlay } from './src/components/ui/EditorOverlay';
 import { WelcomeGuide } from './src/components/ui/WelcomeGuide';
@@ -32,7 +32,7 @@ export default function App() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <View style={styles.root}>
-          <InteractionSoundPlayer enabled />
+          <DeferredInteractionSoundPlayer enabled />
           <InteractionHapticPlayer />
           <RoomCanvas />
           <WeatherOverlay
