@@ -1,7 +1,7 @@
 import {
   setAudioModeAsync,
+  setIsAudioActiveAsync,
   useAudioPlayer,
-  useAudioPlayerStatus,
   type AudioPlayer,
 } from 'expo-audio';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -20,10 +20,20 @@ const moveSound = require('../../assets/audio/ui/asset-move.wav') as number;
 const UI_SOUND_INTERVAL_MS = 24;
 const MOVE_SOUND_INTERVAL_MS = 70;
 const MAX_PENDING_SIGNALS = 12;
+const PLAYER_READY_RETRY_MS = 40;
+const PLAYER_READY_MAX_ATTEMPTS = 75;
 const playerOptions = {
+  downloadFirst: true,
   keepAudioSessionActive: true,
   updateInterval: 250,
 } as const;
+
+type PendingPlayback = {
+  player: AudioPlayer;
+  volume: number;
+  playbackRate: number;
+  attempts: number;
+};
 
 function replay(player: AudioPlayer, volume: number, playbackRate = 1) {
   player.pause();
@@ -53,12 +63,6 @@ export function InteractionSoundPlayer({
   const placePlayer = useAudioPlayer(placeSound, playerOptions);
   const deletePlayer = useAudioPlayer(deleteSound, playerOptions);
   const movePlayer = useAudioPlayer(moveSound, playerOptions);
-  const uiStatus = useAudioPlayerStatus(uiPlayer);
-  const assetSelectStatus = useAudioPlayerStatus(assetSelectPlayer);
-  const cameraStatus = useAudioPlayerStatus(cameraPlayer);
-  const placeStatus = useAudioPlayerStatus(placePlayer);
-  const deleteStatus = useAudioPlayerStatus(deletePlayer);
-  const moveStatus = useAudioPlayerStatus(movePlayer);
   const [audioSessionReady, setAudioSessionReady] = useState(false);
   const enabledRef = useRef(enabled);
   const readyRef = useRef(false);
@@ -68,42 +72,113 @@ export function InteractionSoundPlayer({
   );
   const lastUiAtRef = useRef(0);
   const lastMoveAtRef = useRef(0);
-
-  const allPlayersLoaded =
-    uiStatus.isLoaded &&
-    assetSelectStatus.isLoaded &&
-    cameraStatus.isLoaded &&
-    placeStatus.isLoaded &&
-    deleteStatus.isLoaded &&
-    moveStatus.isLoaded;
+  const pendingPlaybackRef = useRef(new Map<string, PendingPlayback>());
+  const retryTimersRef = useRef(
+    new Map<string, ReturnType<typeof setTimeout>>(),
+  );
 
   useEffect(() => {
     let cancelled = false;
 
-    void setAudioModeAsync({
-      allowsRecording: false,
-      interruptionMode: 'mixWithOthers',
-      playsInSilentMode: true,
-      shouldPlayInBackground: false,
-      shouldRouteThroughEarpiece: false,
-    })
-      .catch((error: unknown) => {
-        if (__DEV__) {
-          console.warn('Interaction audio session could not be configured.', error);
+    const configureAudioSession = async () => {
+      try {
+        await setAudioModeAsync({
+          allowsRecording: false,
+          interruptionMode: 'mixWithOthers',
+          playsInSilentMode: true,
+          shouldPlayInBackground: false,
+          shouldRouteThroughEarpiece: false,
+        });
+      } catch (primaryError) {
+        try {
+          // Keep a minimal iOS-safe fallback. A failed optional routing field
+          // must not leave every interaction sound permanently queued.
+          await setAudioModeAsync({ playsInSilentMode: true });
+        } catch (fallbackError) {
+          console.warn(
+            'Interaction audio session could not be configured.',
+            primaryError,
+            fallbackError,
+          );
+          return;
         }
-      })
-      .finally(() => {
-        if (!cancelled) setAudioSessionReady(true);
-      });
+      }
+
+      try {
+        await setIsAudioActiveAsync(true);
+      } catch (error) {
+        // The session mode is already valid. AVPlayer may still activate it on
+        // the first play, so keep interaction audio available.
+        console.warn('Interaction audio could not be activated eagerly.', error);
+      }
+
+      if (!cancelled) setAudioSessionReady(true);
+    };
+
+    void configureAudioSession();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const clearPendingPlaybacks = useCallback(() => {
+    retryTimersRef.current.forEach((timer) => clearTimeout(timer));
+    retryTimersRef.current.clear();
+    pendingPlaybackRef.current.clear();
+  }, []);
+
+  useEffect(() => clearPendingPlaybacks, [clearPendingPlaybacks]);
+
+  const replayWhenReady = useCallback(
+    (player: AudioPlayer, volume: number, playbackRate = 1) => {
+      const playerId = player.id;
+      pendingPlaybackRef.current.set(playerId, {
+        player,
+        volume,
+        playbackRate,
+        attempts: 0,
+      });
+      if (retryTimersRef.current.has(playerId)) return;
+
+      const attemptPlayback = () => {
+        retryTimersRef.current.delete(playerId);
+        const pending = pendingPlaybackRef.current.get(playerId);
+        if (!pending || !enabledRef.current) return;
+
+        const status = pending.player.currentStatus;
+        if (status.isLoaded) {
+          pendingPlaybackRef.current.delete(playerId);
+          replay(pending.player, pending.volume, pending.playbackRate);
+          return;
+        }
+
+        if (status.error || pending.attempts >= PLAYER_READY_MAX_ATTEMPTS) {
+          pendingPlaybackRef.current.delete(playerId);
+          console.warn(
+            `Interaction sound did not become ready (${playerId}).`,
+            status.error,
+          );
+          return;
+        }
+
+        pending.attempts += 1;
+        retryTimersRef.current.set(
+          playerId,
+          setTimeout(attemptPlayback, PLAYER_READY_RETRY_MS),
+        );
+      };
+
+      attemptPlayback();
+    },
+    [],
+  );
+
   useEffect(() => {
     enabledRef.current = enabled;
     if (enabled) return;
+
+    clearPendingPlaybacks();
 
     for (const player of [
       uiPlayer,
@@ -124,6 +199,7 @@ export function InteractionSoundPlayer({
     placePlayer,
     deletePlayer,
     movePlayer,
+    clearPendingPlaybacks,
   ]);
 
   const playSignal = useCallback(
@@ -135,27 +211,27 @@ export function InteractionSoundPlayer({
         const now = Date.now();
         if (now - lastUiAtRef.current < UI_SOUND_INTERVAL_MS) return;
         lastUiAtRef.current = now;
-        replay(uiPlayer, 0.42);
+        replayWhenReady(uiPlayer, 0.42);
         return;
       }
       if (event === 'assetSelect') {
-        replay(assetSelectPlayer, 0.4);
+        replayWhenReady(assetSelectPlayer, 0.4);
         return;
       }
       if (event === 'camera') {
-        replay(cameraPlayer, 0.62);
+        replayWhenReady(cameraPlayer, 0.62);
         return;
       }
       if (event === 'place') {
-        replay(placePlayer, 0.43);
+        replayWhenReady(placePlayer, 0.43);
         return;
       }
       if (event === 'settle') {
-        replay(placePlayer, 0.32, 0.96);
+        replayWhenReady(placePlayer, 0.32, 0.96);
         return;
       }
       if (event === 'delete') {
-        replay(deletePlayer, 0.38);
+        replayWhenReady(deletePlayer, 0.38);
         return;
       }
       if (event !== 'move') return;
@@ -163,9 +239,21 @@ export function InteractionSoundPlayer({
       const now = Date.now();
       if (now - lastMoveAtRef.current < MOVE_SOUND_INTERVAL_MS) return;
       lastMoveAtRef.current = now;
-      replay(movePlayer, 0.36, Math.floor(now / MOVE_SOUND_INTERVAL_MS) % 2 === 0 ? 0.97 : 1.03);
+      replayWhenReady(
+        movePlayer,
+        0.36,
+        Math.floor(now / MOVE_SOUND_INTERVAL_MS) % 2 === 0 ? 0.97 : 1.03,
+      );
     },
-    [uiPlayer, assetSelectPlayer, cameraPlayer, placePlayer, deletePlayer, movePlayer],
+    [
+      uiPlayer,
+      assetSelectPlayer,
+      cameraPlayer,
+      placePlayer,
+      deletePlayer,
+      movePlayer,
+      replayWhenReady,
+    ],
   );
 
   useEffect(() => {
@@ -173,13 +261,12 @@ export function InteractionSoundPlayer({
   }, [playSignal]);
 
   useEffect(() => {
-    const ready = audioSessionReady && allPlayersLoaded;
-    readyRef.current = ready;
-    if (!ready || !enabledRef.current) return;
+    readyRef.current = audioSessionReady;
+    if (!audioSessionReady || !enabledRef.current) return;
 
     const pendingSignals = pendingSignalsRef.current.splice(0);
     pendingSignals.forEach((signal) => playSignal(signal));
-  }, [allPlayersLoaded, audioSessionReady, playSignal]);
+  }, [audioSessionReady, playSignal]);
 
   useEffect(
     () =>

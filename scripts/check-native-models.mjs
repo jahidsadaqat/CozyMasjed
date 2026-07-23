@@ -25,6 +25,14 @@ const nativeLoaderPath = path.resolve(
   sourceRoot,
   'components/models/NativeGLTFLoader.ts',
 );
+const nativeTexturePath = path.resolve(
+  sourceRoot,
+  'services/nativeTexture.ts',
+);
+const backdropPath = path.resolve(
+  sourceRoot,
+  'components/room/SceneBackdrop.tsx',
+);
 
 async function listModels(directory) {
   const entries = await fs.readdir(directory, { withFileTypes: true });
@@ -57,6 +65,8 @@ async function listTypeScriptSources(directory) {
 async function checkNativeModelLoader(failures) {
   const loaderSource = await fs.readFile(modelLoaderPath, 'utf8');
   const nativeLoaderSource = await fs.readFile(nativeLoaderPath, 'utf8');
+  const nativeTextureSource = await fs.readFile(nativeTexturePath, 'utf8');
+  const backdropSource = await fs.readFile(backdropPath, 'utf8');
   const loaderRelativePath = path.relative(projectRoot, modelLoaderPath);
   const nativeLoaderRelativePath = path.relative(projectRoot, nativeLoaderPath);
 
@@ -164,6 +174,38 @@ async function checkNativeModelLoader(failures) {
   if (!/delete\s+image\.bufferView/u.test(nativeLoaderSource)) {
     failures.push(
       `${nativeLoaderRelativePath}: cached native textures must replace their embedded bufferView references`,
+    );
+  }
+
+  if (
+    !/\bregisterNativeTexture\s*\(/u.test(nativeLoaderSource) ||
+    !/\bNativeFileTextureLoader\b/u.test(nativeLoaderSource) ||
+    !/\.addHandler\s*\(/u.test(nativeLoaderSource)
+  ) {
+    failures.push(
+      `${nativeLoaderRelativePath}: extracted maps must use the native file texture handler instead of React Native Image.getSize`,
+    );
+  }
+
+  if (!/super\s*\(\s*manager\s*\?\?\s*new\s+LoadingManager\s*\(\s*\)\s*\)/u.test(nativeLoaderSource)) {
+    failures.push(
+      `${nativeLoaderRelativePath}: keep the native texture handler off Three's global DefaultLoadingManager`,
+    );
+  }
+
+  if (
+    !/new\s+THREE\.DataTexture\s*\(/u.test(nativeTextureSource) ||
+    !/data\s*:\s*\{\s*localUri\s*:\s*uri\s*\}/u.test(nativeTextureSource) ||
+    !/\breadNativeImageSize\s*\(/u.test(nativeTextureSource)
+  ) {
+    failures.push(
+      `${path.relative(projectRoot, nativeTexturePath)}: Expo GL textures must provide parsed dimensions and a direct { localUri } DataTexture`,
+    );
+  }
+
+  if (!/\bcreateNativeFileTexture\s*\(/u.test(backdropSource)) {
+    failures.push(
+      `${path.relative(projectRoot, backdropPath)}: native backgrounds must bypass TextureLoader/Image.getSize`,
     );
   }
 

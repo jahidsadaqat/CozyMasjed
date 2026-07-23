@@ -7,7 +7,7 @@ import type { WeatherMode } from '../../domain/weather';
 import { weatherVisualProfiles } from '../../domain/weather';
 import { useRoomStore } from '../../store/roomStore';
 import { getBackgroundOption, type BackgroundId } from '../../theme/backgrounds';
-import { cacheBundledImage } from '../../services/nativeImageCache';
+import { createNativeFileTexture } from '../../services/nativeTexture';
 
 const BACKGROUND_ASPECT = 941 / 1672;
 const ignoreRaycast = () => undefined;
@@ -132,18 +132,23 @@ function IllustratedBackdrop({
         if (cancelled) return;
         const resolvedUri = asset.localUri ?? asset.uri;
         if (!resolvedUri) throw new Error('The background asset has no readable URI.');
-        const uri =
-          Platform.OS === 'web'
-            ? resolvedUri
-            : await cacheBundledImage(
-                resolvedUri,
-                `background-${asset.hash ?? backgroundId}`,
-                asset.type || 'png',
-              );
-        if (cancelled) return;
+
+        if (Platform.OS !== 'web') {
+          if (!asset.localUri) {
+            throw new Error('The bundled background did not resolve to a native file URI.');
+          }
+          ownedTexture = createNativeFileTexture(
+            asset.localUri,
+            asset.width || 941,
+            asset.height || 1672,
+          );
+          configureBackdropTexture(ownedTexture);
+          setTexture(ownedTexture);
+          return;
+        }
 
         ownedTexture = new THREE.TextureLoader().load(
-          uri,
+          resolvedUri,
           (loadedTexture) => {
             if (cancelled) {
               disposeOwnedTexture();

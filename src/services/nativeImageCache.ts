@@ -1,9 +1,11 @@
 import { fromByteArray } from 'base64-js';
-import { File } from 'expo-file-system';
 import * as LegacyFileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
-const CACHE_FOLDER = 'cozy-masjid-textures';
+// Version the cache when the native upload pipeline changes. TestFlight
+// updates preserve Library/Caches, so a fresh folder prevents a new build from
+// inheriting a same-sized but unreadable file produced by an older pipeline.
+const CACHE_FOLDER = 'cozy-masjid-textures-v2';
 const cacheWrites = new Map<string, Promise<string>>();
 let cacheDirectoryPromise: Promise<string> | null = null;
 
@@ -112,18 +114,4 @@ export async function cacheEmbeddedModelTexture(bytes: Uint8Array, mimeType: str
     extension,
     bytes.byteLength,
   );
-}
-
-export async function cacheBundledImage(
-  uri: string,
-  cacheKey: string,
-  extension: string,
-) {
-  if (Platform.OS === 'web') return uri;
-
-  // SDK 57 can read a bundled file through base64() without requesting write
-  // access to the read-only .app bundle. The writable cache copy is also the
-  // URI shape EXGL's native image uploader handles reliably.
-  const base64 = await new File(uri).base64();
-  return cacheBase64Image(base64, cacheKey, extension);
 }

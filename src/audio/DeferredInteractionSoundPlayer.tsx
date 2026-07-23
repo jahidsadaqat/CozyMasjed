@@ -48,10 +48,7 @@ class SoundBoundary extends Component<SoundBoundaryProps, SoundBoundaryState> {
   }
 }
 
-/**
- * Audio is intentionally loaded only after the first sound-producing gesture.
- * A missing or failing native audio module must never prevent the room from opening.
- */
+/** A missing or failing native audio module must never prevent the room from opening. */
 export function DeferredInteractionSoundPlayer({ enabled }: DeferredSoundPlayerProps) {
   const [SoundPlayer, setSoundPlayer] = useState<ComponentType<SoundPlayerProps> | null>(null);
   const [initialSignal, setInitialSignal] = useState<InteractionFeedbackSignal | null>(null);
@@ -61,29 +58,31 @@ export function DeferredInteractionSoundPlayer({ enabled }: DeferredSoundPlayerP
     if (!enabled || SoundPlayer || unavailable) return;
 
     let cancelled = false;
-    let loading = false;
-
-    return subscribeToInteractionFeedback((signal) => {
-      if (!signal.sound || loading) return;
-      loading = true;
-      setInitialSignal(signal);
-
-      if (Platform.OS !== 'web' && !requireOptionalNativeModule('ExpoAudio')) {
-        if (!cancelled) setUnavailable(true);
-        return;
-      }
-
-      void import('./InteractionSoundPlayer')
-        .then((module) => {
-          if (!cancelled) setSoundPlayer(() => module.InteractionSoundPlayer);
-        })
-        .catch((error: unknown) => {
-          if (__DEV__) {
-            console.warn('Interaction audio could not be loaded and has been disabled.', error);
-          }
-          if (!cancelled) setUnavailable(true);
-        });
+    const unsubscribe = subscribeToInteractionFeedback((signal) => {
+      if (!signal.sound) return;
+      setInitialSignal((current) => current ?? signal);
     });
+
+    if (Platform.OS !== 'web' && !requireOptionalNativeModule('ExpoAudio')) {
+      setUnavailable(true);
+      return unsubscribe;
+    }
+
+    // Mount and download the short effects during normal app startup. Waiting
+    // for the first tap made the first sound race six native AVPlayer loads.
+    void import('./InteractionSoundPlayer')
+      .then((module) => {
+        if (!cancelled) setSoundPlayer(() => module.InteractionSoundPlayer);
+      })
+      .catch((error: unknown) => {
+        console.warn('Interaction audio could not be loaded and has been disabled.', error);
+        if (!cancelled) setUnavailable(true);
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [enabled, SoundPlayer, unavailable]);
 
   if (!enabled || !SoundPlayer || unavailable) return null;

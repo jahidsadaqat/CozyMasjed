@@ -5,7 +5,14 @@ import {
   GLTFLoader,
   type GLTF,
 } from 'three/addons/loaders/GLTFLoader.js';
+import { LoadingManager } from 'three';
 import { cacheEmbeddedModelTexture } from '../../services/nativeImageCache';
+import {
+  NATIVE_MODEL_TEXTURE_PATTERN,
+  NativeFileTextureLoader,
+  readNativeImageSize,
+  registerNativeTexture,
+} from '../../services/nativeTexture';
 
 const GLB_MAGIC = 0x46546c67;
 const GLB_VERSION = 2;
@@ -117,10 +124,10 @@ async function prepareEmbeddedTextures(data: ArrayBuffer, url: string) {
         throw new Error(`Embedded model texture ${imageIndex} exceeds the BIN chunk: ${url}`);
       }
 
-      image.uri = await cacheEmbeddedModelTexture(
-        new Uint8Array(data, imageStart, bufferView.byteLength),
-        image.mimeType,
-      );
+      const imageBytes = new Uint8Array(data, imageStart, bufferView.byteLength);
+      const metadata = readNativeImageSize(imageBytes, image.mimeType);
+      image.uri = await cacheEmbeddedModelTexture(imageBytes, image.mimeType);
+      registerNativeTexture(image.uri, metadata);
       delete image.bufferView;
     }),
   );
@@ -165,6 +172,16 @@ async function prepareEmbeddedTextures(data: ArrayBuffer, url: string) {
  * byteOffset and byteLength produces the exact ArrayBuffer Three expects.
  */
 export class NativeGLTFLoader extends GLTFLoader {
+  constructor(manager?: LoadingManager) {
+    // R3F constructs loaders without a manager. Keep this native-only handler
+    // isolated instead of registering it on Three's global DefaultLoadingManager.
+    super(manager ?? new LoadingManager());
+    this.manager.addHandler(
+      NATIVE_MODEL_TEXTURE_PATTERN,
+      new NativeFileTextureLoader(this.manager),
+    );
+  }
+
   override load(
     url: string,
     onLoad: (gltf: GLTF) => void,
