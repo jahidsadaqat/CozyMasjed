@@ -90,6 +90,7 @@ export function RoomCanvas() {
         );
       });
     const pinch = Gesture.Pinch()
+      .shouldCancelWhenOutside(false)
       .runOnJS(true)
       .onStart((event) => {
         cancelPanUpdate();
@@ -97,12 +98,17 @@ export function RoomCanvas() {
       })
       .onUpdate((event) => updateEditorPinch(event.scale, event.focalX, event.focalY))
       .onFinalize(() => finishEditorPinch());
-    return Gesture.Simultaneous(Gesture.Exclusive(pan, tap), pinch);
+    // Keep pinch as a first-class peer of the one-finger gestures. A direct
+    // simultaneous composition lets iOS promote the second pointer to a pinch
+    // without waiting on a nested one-finger recognizer. Pan and tap already
+    // disambiguate via minDistance/maxDistance.
+    return Gesture.Simultaneous(pinch, pan, tap);
   }, [cancelPanUpdate, flushPanUpdate, queuePanUpdate]);
 
   return (
     <GestureDetector gesture={gesture}>
       <View
+        collapsable={false}
         onPointerMove={
           Platform.OS === 'web'
             ? (event) => updateEditorPlacementHover(event.nativeEvent.offsetX, event.nativeEvent.offsetY)

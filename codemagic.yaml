@@ -25,6 +25,7 @@ workflows:
         script: |
           npm run typecheck
           npm run models:check-native
+          npm run audio:check-native
           npx expo-doctor
       - name: Generate iOS native project
         script: EXPO_NO_GIT_STATUS=1 npx expo prebuild --platform ios --clean --no-install

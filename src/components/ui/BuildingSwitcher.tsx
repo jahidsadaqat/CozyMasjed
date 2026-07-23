@@ -1,7 +1,5 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { useMemo } from 'react';
+import { Building2, ChevronLeft, ChevronRight, House } from 'lucide-react-native';
 import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { BUILDING_OPTIONS, type BuildingId } from '../../domain/buildings';
 import { emitInteractionFeedback } from '../../feedback/interactionFeedbackEvents';
 import { useRoomStore } from '../../store/roomStore';
@@ -11,10 +9,6 @@ type BuildingSwitcherProps = {
   disabled?: boolean;
   onBeforeChange?: () => void;
 };
-
-const SWIPE_DISTANCE = 44;
-const FLING_DISTANCE = 24;
-const FLING_VELOCITY = 500;
 
 export function BuildingSwitcher({ disabled = false, onBeforeChange }: BuildingSwitcherProps) {
   const activeBuildingId = useRoomStore((state) => state.activeBuildingId);
@@ -43,97 +37,79 @@ export function BuildingSwitcher({ disabled = false, onBeforeChange }: BuildingS
     if (nextBuilding) changeBuilding(nextBuilding.id);
   };
 
-  const gesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .minPointers(1)
-        .maxPointers(1)
-        .activeOffsetX([-12, 12])
-        .failOffsetY([-16, 16])
-        .runOnJS(true)
-        .onEnd((event) => {
-          if (disabled) return;
-          const horizontal = Math.abs(event.translationX);
-          const vertical = Math.abs(event.translationY);
-          const isDistanceSwipe = horizontal >= SWIPE_DISTANCE && horizontal >= vertical * 1.4;
-          const isFling =
-            horizontal >= FLING_DISTANCE &&
-            Math.abs(event.velocityX) >= FLING_VELOCITY &&
-            horizontal >= vertical * 1.2;
-          if (!isDistanceSwipe && !isFling) return;
-          moveBy(event.translationX < 0 ? 1 : -1);
-        }),
-    [activeBuildingId, disabled, onBeforeChange],
-  );
-
-  const cuePointsLeft = activeIndex === 0;
-  const hint = cuePointsLeft
-    ? 'Swipe left for the next building'
-    : 'Swipe right for the previous building';
-
-  const dots = (
-    <View accessibilityRole="radiogroup" style={styles.dotCapsule}>
-      {BUILDING_OPTIONS.map((building, index) => {
-        const active = index === activeIndex;
-        return (
-          <Pressable
-            key={building.id}
-            accessibilityHint={`Shows ${building.name}`}
-            accessibilityLabel={`Building ${index + 1}: ${building.name}`}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: active, disabled }}
-            aria-checked={active}
-            disabled={disabled}
-            hitSlop={4}
-            onPress={() => changeBuilding(building.id)}
-            style={({ pressed }) => [styles.dotTarget, pressed && styles.pressed]}
-          >
-            <View style={[styles.dot, active && styles.dotActive]} />
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-
-  const cue = (
-    <Pressable
-      accessibilityHint={hint}
-      accessibilityLabel={hint}
-      accessibilityRole="button"
-      disabled={disabled}
-      onPress={() => moveBy(cuePointsLeft ? 1 : -1)}
-      style={({ pressed }) => [styles.cue, pressed && styles.pressed]}
-    >
-      {cuePointsLeft ? (
-        <ChevronLeft color={palette.ink} size={17} strokeWidth={2.6} />
-      ) : (
-        <ChevronRight color={palette.ink} size={17} strokeWidth={2.6} />
-      )}
-    </Pressable>
-  );
+  const hasPrevious = activeIndex > 0;
+  const hasNext = activeIndex < BUILDING_OPTIONS.length - 1;
 
   return (
-    <GestureDetector gesture={gesture}>
-      <View
-        accessible
-        accessibilityActions={[
-          { name: 'increment', label: 'Next building' },
-          { name: 'decrement', label: 'Previous building' },
+    <View
+      accessibilityLabel={`Choose a building. ${BUILDING_OPTIONS[activeIndex]?.name} is selected.`}
+      accessibilityRole="radiogroup"
+      style={[styles.root, disabled && styles.disabled]}
+    >
+      <Pressable
+        accessibilityLabel="Previous building"
+        accessibilityRole="button"
+        accessibilityState={{ disabled: disabled || !hasPrevious }}
+        disabled={disabled || !hasPrevious}
+        hitSlop={5}
+        onPress={() => moveBy(-1)}
+        style={({ pressed }) => [
+          styles.arrowButton,
+          !hasPrevious && styles.controlUnavailable,
+          pressed && styles.pressed,
         ]}
-        accessibilityHint="Swipe left or right, or tap a dot, to change building"
-        accessibilityLabel={`Building ${activeIndex + 1} of ${BUILDING_OPTIONS.length}, ${BUILDING_OPTIONS[activeIndex]?.name}`}
-        accessibilityRole="adjustable"
-        accessibilityState={{ disabled }}
-        onAccessibilityAction={(event) => {
-          if (event.nativeEvent.actionName === 'increment') moveBy(1);
-          if (event.nativeEvent.actionName === 'decrement') moveBy(-1);
-        }}
-        style={[styles.root, disabled && styles.disabled]}
       >
-        {cuePointsLeft ? cue : dots}
-        {cuePointsLeft ? dots : cue}
+        <ChevronLeft color={palette.ink} size={19} strokeWidth={2.7} />
+      </Pressable>
+
+      <View style={styles.buildingChoices}>
+        {BUILDING_OPTIONS.map((building, index) => {
+          const active = index === activeIndex;
+          const Icon = building.id === 'cozy-masjid' ? House : Building2;
+          return (
+            <Pressable
+              key={building.id}
+              accessibilityHint={`Opens ${building.name}`}
+              accessibilityLabel={`Building ${index + 1}: ${building.name}`}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active, disabled }}
+              aria-checked={active}
+              disabled={disabled}
+              hitSlop={4}
+              onPress={() => changeBuilding(building.id)}
+              style={({ pressed }) => [
+                styles.buildingButton,
+                active && styles.buildingButtonActive,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Icon
+                color={active ? palette.cream : palette.inkMuted}
+                size={active ? 21 : 19}
+                strokeWidth={active ? 2.5 : 2.2}
+              />
+              <View style={[styles.indexDot, active && styles.indexDotActive]} />
+            </Pressable>
+          );
+        })}
       </View>
-    </GestureDetector>
+
+      <Pressable
+        accessibilityLabel="Next building"
+        accessibilityRole="button"
+        accessibilityState={{ disabled: disabled || !hasNext }}
+        disabled={disabled || !hasNext}
+        hitSlop={5}
+        onPress={() => moveBy(1)}
+        style={({ pressed }) => [
+          styles.arrowButton,
+          !hasNext && styles.controlUnavailable,
+          pressed && styles.pressed,
+        ]}
+      >
+        <ChevronRight color={palette.ink} size={19} strokeWidth={2.7} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -147,49 +123,56 @@ const shadow = {
 
 const styles = StyleSheet.create({
   root: {
-    minWidth: 132,
-    height: 56,
+    height: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  buildingChoices: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 7,
   },
-  dotCapsule: {
-    height: 28,
-    paddingHorizontal: 7,
-    borderRadius: 14,
-    flexDirection: 'row',
+  buildingButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(246, 244, 239, 0.94)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(78, 59, 49, 0.12)',
     ...shadow,
   },
-  dotTarget: {
-    width: 27,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
+  buildingButtonActive: {
+    backgroundColor: palette.ink,
+    borderColor: palette.ink,
+    transform: [{ scale: 1.06 }],
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  indexDot: {
+    position: 'absolute',
+    bottom: 5,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: 'rgba(78, 59, 49, 0.28)',
   },
-  dotActive: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: palette.ink,
+  indexDotActive: {
+    backgroundColor: palette.gold,
   },
-  cue: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  arrowButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(246, 244, 239, 0.94)',
     ...shadow,
+  },
+  controlUnavailable: {
+    opacity: 0.34,
   },
   pressed: {
     transform: [{ scale: 0.92 }],

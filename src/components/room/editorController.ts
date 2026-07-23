@@ -1,9 +1,7 @@
 import type { RootState } from '@react-three/fiber';
-import { AccessibilityInfo } from 'react-native';
 import * as THREE from 'three';
 import { catalogById } from '../../catalog/catalog';
 import type { PlacementSurface } from '../../catalog/types';
-import { BUILDING_OPTIONS } from '../../domain/buildings';
 import {
   canAttachToSlot,
   rotationForAttachment,
@@ -51,6 +49,13 @@ let activePanMode: 'item' | 'placement' | 'orbit' | null = null;
 let orbitStartYaw = DEFAULT_CAMERA_YAW;
 let pinchActive = false;
 let suppressTapUntil = 0;
+
+function orthographicCamera() {
+  const camera = rootState?.camera;
+  return camera && (camera as THREE.OrthographicCamera).isOrthographicCamera
+    ? (camera as THREE.OrthographicCamera)
+    : null;
+}
 
 function findTaggedParent(
   object: THREE.Object3D,
@@ -246,17 +251,18 @@ export function setEditorRootState(state: RootState) {
   const store = useRoomStore.getState();
   currentCameraYaw = store.cameraYaw;
   currentCameraTarget.fromArray(store.cameraTarget);
-  if (state.camera instanceof THREE.OrthographicCamera) {
+  const camera = orthographicCamera();
+  if (camera) {
     const [x, y, z] = cameraPositionForYaw(currentCameraYaw, [
       currentCameraTarget.x,
       currentCameraTarget.y,
       currentCameraTarget.z,
     ]);
-    state.camera.position.set(x, y, z);
-    state.camera.zoom = store.cameraZoom;
-    state.camera.lookAt(currentCameraTarget);
-    state.camera.updateProjectionMatrix();
-    state.camera.updateMatrixWorld();
+    camera.position.set(x, y, z);
+    camera.zoom = store.cameraZoom;
+    camera.lookAt(currentCameraTarget);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
     state.invalidate();
   }
 }
@@ -403,7 +409,7 @@ function applyCameraYaw(yaw: number) {
 
 function saveCameraView() {
   const store = useRoomStore.getState();
-  const zoom = rootState?.camera instanceof THREE.OrthographicCamera ? rootState.camera.zoom : store.cameraZoom;
+  const zoom = orthographicCamera()?.zoom ?? store.cameraZoom;
   store.setCameraView(zoom, currentCameraYaw, [
     currentCameraTarget.x,
     currentCameraTarget.y,
@@ -444,6 +450,10 @@ export function prepareEditorPan(x: number, y: number) {
 
 export function activateEditorPan() {
   if (!preparedPan || pinchActive) return;
+  // Pan and tap are recognized simultaneously so pinch can take over cleanly
+  // when a second finger arrives. Once a real pan activates, suppress its
+  // companion tap callback to avoid selecting an item after an orbit/drag.
+  suppressTapUntil = Number.POSITIVE_INFINITY;
   if (preparedPan.mode === 'placement') {
     activePanMode = 'placement';
     emitInteractionFeedback('dragStart');
@@ -451,7 +461,15 @@ export function activateEditorPan() {
     return;
   }
   if (preparedPan.mode === 'item' && preparedPan.placedId) {
-    activePanMode = beginItemDrag(preparedPan.placedId, preparedPan.x, preparedPan.y) ? 'item' : null;
+    if (beginItemDrag(preparedPan.placedId, preparedPan.x, preparedPan.y)) {
+      activePanMode = 'item';
+      return;
+    }
+    // If the item cannot be dragged from this exact pixel (for example its
+    // placement surface is occluded), retain the normal empty-space orbit
+    // behavior instead of leaving the interaction in a blocked state.
+    orbitStartYaw = currentCameraYaw;
+    activePanMode = 'orbit';
     return;
   }
   orbitStartYaw = currentCameraYaw;
@@ -473,56 +491,16 @@ export function updateEditorPan(x: number, y: number, translationX: number) {
   }
 }
 
-function switchBuildingFromRoomSwipe(
-  translationX: number,
-  translationY: number,
-  velocityX: number,
-) {
-  if (!rootState) return false;
-  const horizontal = Math.abs(translationX);
-  const vertical = Math.abs(translationY);
-  const width = Math.max(rootState.size.width, 1);
-  const isLongSwipe = horizontal >= Math.max(150, width * 0.52) && horizontal >= vertical * 1.5;
-  const isFastSwipe =
-    horizontal >= Math.max(72, width * 0.22) &&
-    Math.abs(velocityX) >= 850 &&
-    horizontal >= vertical * 1.35;
-  if (!isLongSwipe && !isFastSwipe) return false;
-
-  const store = useRoomStore.getState();
-  const currentIndex = BUILDING_OPTIONS.findIndex(
-    (building) => building.id === store.activeBuildingId,
-  );
-  const nextIndex = Math.min(
-    BUILDING_OPTIONS.length - 1,
-    Math.max(0, currentIndex + (translationX < 0 ? 1 : -1)),
-  );
-  const nextBuilding = BUILDING_OPTIONS[nextIndex];
-  if (!nextBuilding || nextBuilding.id === store.activeBuildingId) return false;
-
-  // The same gesture previews camera orbit while the finger moves. Restore the
-  // original angle before paging so switching buildings never leaves a camera
-  // rotation behind.
-  applyCameraYaw(orbitStartYaw);
-  emitInteractionFeedback('buildingSwitch');
-  store.setActiveBuildingId(nextBuilding.id);
-  saveCameraView();
-  suppressTapUntil = Date.now() + 180;
-  void AccessibilityInfo.announceForAccessibility(
-    `${nextBuilding.name}, building ${nextIndex + 1} of ${BUILDING_OPTIONS.length}`,
-  );
-  return true;
-}
-
 export function finishEditorPan(
   success: boolean,
   x: number,
   y: number,
-  translationX = 0,
-  translationY = 0,
-  velocityX = 0,
+  _translationX = 0,
+  _translationY = 0,
+  _velocityX = 0,
 ) {
   const store = useRoomStore.getState();
+  const didActivatePan = activePanMode !== null;
   if (activePanMode === 'placement') {
     if (success) {
       const valid = updatePlacementFromPointer(x, y, false);
@@ -534,17 +512,17 @@ export function finishEditorPan(
     else store.cancelDrag();
     clearItemDrag();
   } else if (activePanMode === 'orbit') {
-    if (!success || !switchBuildingFromRoomSwipe(translationX, translationY, velocityX)) {
-      saveCameraView();
-    }
+    saveCameraView();
   }
   preparedPan = null;
   activePanMode = null;
+  if (didActivatePan && !pinchActive) suppressTapUntil = Date.now() + 100;
 }
 
 export function beginEditorPinch(focalX: number, focalY: number) {
-  if (!rootState) return;
-  pinchStartZoom = rootState.camera.zoom;
+  const camera = orthographicCamera();
+  if (!camera) return;
+  pinchStartZoom = camera.zoom;
   pinchActive = true;
   suppressTapUntil = Number.POSITIVE_INFINITY;
   const store = useRoomStore.getState();
@@ -556,20 +534,21 @@ export function beginEditorPinch(focalX: number, focalY: number) {
 }
 
 export function updateEditorPinch(scale: number, focalX: number, focalY: number) {
-  if (!rootState || !(rootState.camera instanceof THREE.OrthographicCamera)) return;
+  const camera = orthographicCamera();
+  if (!rootState || !camera) return;
   const zoom = clampCameraZoom(pinchStartZoom * scale);
-  rootState.camera.zoom = zoom;
-  rootState.camera.updateProjectionMatrix();
-  rootState.camera.updateMatrixWorld();
+  camera.zoom = zoom;
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld();
 
   if (hasPinchAnchor && pointOnCameraPlane(focalX, focalY, currentCameraTarget, pinchPlanePoint)) {
     pinchTargetCandidate.copy(currentCameraTarget).add(pinchAnchor).sub(pinchPlanePoint);
     keepTargetInsideRoom(pinchTargetCandidate);
     const appliedDelta = pinchTargetCandidate.sub(currentCameraTarget);
     currentCameraTarget.add(appliedDelta);
-    rootState.camera.position.add(appliedDelta);
-    rootState.camera.lookAt(currentCameraTarget);
-    rootState.camera.updateMatrixWorld();
+    camera.position.add(appliedDelta);
+    camera.lookAt(currentCameraTarget);
+    camera.updateMatrixWorld();
   }
   rootState.invalidate();
 }

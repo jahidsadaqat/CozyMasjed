@@ -40,8 +40,9 @@ export function emitInteractionFeedback(
   listeners.forEach((listener) => {
     try {
       listener(signal);
-    } catch {
+    } catch (error) {
       // Feedback must never interrupt the room edit that emitted it.
+      console.warn(`Interaction feedback listener failed for "${event}".`, error);
     }
   });
 }

@@ -3,8 +3,11 @@ import * as THREE from 'three';
 export const DEFAULT_CAMERA_POSITION = [5.8, 6.45, 6.4] as const;
 export const CAMERA_TARGET = [0, 1.77, 0] as const;
 export const DEFAULT_CAMERA_ZOOM = 72;
-export const MIN_CAMERA_ZOOM = 52;
-export const MAX_CAMERA_ZOOM = 104;
+// Orthographic zoom only changes the camera projection; it never scales or
+// moves placed models. Keep enough range to make a phone pinch unmistakable,
+// while still retaining the walls/floor as spatial context at both limits.
+export const MIN_CAMERA_ZOOM = 48;
+export const MAX_CAMERA_ZOOM = 126;
 
 export const CAMERA_HORIZONTAL_RADIUS = Math.hypot(DEFAULT_CAMERA_POSITION[0], DEFAULT_CAMERA_POSITION[2]);
 export const CAMERA_VERTICAL_OFFSET = DEFAULT_CAMERA_POSITION[1] - CAMERA_TARGET[1];

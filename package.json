@@ -42,6 +42,7 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
+    "audio:check-native": "node scripts/check-native-audio.mjs",
     "ios": "expo start --ios",
     "models:check-native": "node scripts/check-native-models.mjs",
     "web": "expo start --web",

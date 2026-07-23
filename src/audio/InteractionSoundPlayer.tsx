@@ -38,7 +38,9 @@ type PendingPlayback = {
 function replay(player: AudioPlayer, volume: number, playbackRate = 1) {
   player.pause();
   player.volume = volume;
-  player.playbackRate = playbackRate;
+  // `playbackRate` is read-only in Expo Audio's native iOS/Android module.
+  // Assigning to it works on web but throws on-device before `play()` runs.
+  player.setPlaybackRate(playbackRate);
   if (player.currentTime <= 0.001) {
     player.play();
     return;
