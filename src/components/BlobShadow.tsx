@@ -40,7 +40,8 @@ export function createRadialGradientTexture(color: RadialGradientColor) {
       const gradient = context.createRadialGradient(center, center, 0, center, center, center);
       const rgb = `${color.red}, ${color.green}, ${color.blue}`;
       gradient.addColorStop(0, `rgba(${rgb}, ${color.alpha})`);
-      gradient.addColorStop(0.5, `rgba(${rgb}, ${color.alpha * 0.62})`);
+      gradient.addColorStop(0.38, `rgba(${rgb}, ${color.alpha * 0.76})`);
+      gradient.addColorStop(0.72, `rgba(${rgb}, ${color.alpha * 0.24})`);
       gradient.addColorStop(1, `rgba(${rgb}, 0)`);
       context.fillStyle = gradient;
       context.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
@@ -55,7 +56,7 @@ export function createRadialGradientTexture(color: RadialGradientColor) {
   for (let y = 0; y < TEXTURE_SIZE; y += 1) {
     for (let x = 0; x < TEXTURE_SIZE; x += 1) {
       const distance = Math.min(1, Math.hypot(x - center, y - center) / center);
-      const falloff = 1 - THREE.MathUtils.smoothstep(distance, 0, 1);
+      const falloff = 1 - THREE.MathUtils.smoothstep(distance, 0.08, 0.92);
       const offset = (y * TEXTURE_SIZE + x) * 4;
       pixels[offset] = color.red;
       pixels[offset + 1] = color.green;
@@ -70,17 +71,20 @@ export function createRadialGradientTexture(color: RadialGradientColor) {
 
 // Module-level singleton: every placed item shares one 64x64 texture.
 const blobShadowTexture = createRadialGradientTexture({
-  red: 60,
-  green: 45,
-  blue: 35,
-  alpha: 0.35,
+  red: 42,
+  green: 30,
+  blue: 22,
+  alpha: 0.68,
 });
 
 export function BlobShadow({ footprint }: BlobShadowProps) {
   const longestSide = Math.max(footprint.width, footprint.depth);
-  const radius = longestSide * CELL_SIZE * 0.42;
-  const scaleX = radius * (footprint.width / longestSide);
-  const scaleZ = radius * (footprint.depth / longestSide);
+  const visualSide = Math.max(longestSide, 0.65);
+  const radius = visualSide * CELL_SIZE * 0.42;
+  const ratioX = THREE.MathUtils.clamp(footprint.width / longestSide, 0.55, 1);
+  const ratioZ = THREE.MathUtils.clamp(footprint.depth / longestSide, 0.55, 1);
+  const scaleX = radius * ratioX;
+  const scaleZ = radius * ratioZ;
 
   return (
     <mesh

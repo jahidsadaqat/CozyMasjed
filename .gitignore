@@ -26,6 +26,18 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 .expo-web.*.log
+.expo-localhost*.log
+.codex-work/
+
+# local asset-audit renders and Python caches
+tools/__pycache__/
+/tools/animation_scan_report.md
+/tools/audit_duplicate_geometry_blender.py
+/tools/audit_glb_assets.py
+/tools/before_after*.png
+/tools/duplicate_report.md
+/tools/render_validation_assets.py
+/tools/room_preview.png
 
 # macOS
 .DS_Store

@@ -7,7 +7,11 @@ import { catalogById } from '../catalog/catalog';
 import type { PlacementSurface } from '../catalog/types';
 import { CAMERA_TARGET, DEFAULT_CAMERA_YAW, DEFAULT_CAMERA_ZOOM } from '../domain/camera';
 import { canAttachToSlot, getAttachmentSlot } from '../domain/attachments';
-import { defaultBuildingId, type BuildingId } from '../domain/buildings';
+import {
+  BUILDING_IDS,
+  defaultBuildingId,
+  type BuildingId,
+} from '../domain/buildings';
 import {
   DEFAULT_PLACEMENT_LEVEL,
   getDefaultPlacementZoneId,
@@ -25,11 +29,14 @@ import {
 import { defaultWeatherMode, type WeatherMode } from '../domain/weather';
 import { defaultBackgroundId, type BackgroundId } from '../theme/backgrounds';
 import { palette } from '../theme/palette';
+import {
+  createDefaultBuildingSurfaceStyles,
+  type BuildingSurfaceStyles,
+} from '../theme/surfaceStyles';
 
 export type RoomSnapshot = {
   placedItems: PlacedItem[];
-  floorColor: string;
-  wallColor: string;
+  surfaceStyles: BuildingSurfaceStyles;
   backgroundId: BackgroundId;
   accentColor: string;
   weather: WeatherMode;
@@ -123,8 +130,7 @@ const HISTORY_LIMIT = 50;
 
 const initialRoom: RoomSnapshot = {
   placedItems: [],
-  floorColor: palette.woodLight,
-  wallColor: '#F4E6C8',
+  surfaceStyles: createDefaultBuildingSurfaceStyles(),
   backgroundId: defaultBackgroundId,
   accentColor: palette.mutedTeal,
   weather: defaultWeatherMode,
@@ -138,10 +144,22 @@ function clonePlacedItems(items: readonly PlacedItem[]) {
 }
 
 export function cloneRoomSnapshot(snapshot: RoomSnapshot): RoomSnapshot {
+  const defaults = createDefaultBuildingSurfaceStyles();
+  const storedStyles = (snapshot as Partial<RoomSnapshot>).surfaceStyles;
   return {
     placedItems: clonePlacedItems(snapshot.placedItems),
-    floorColor: snapshot.floorColor,
-    wallColor: snapshot.wallColor,
+    surfaceStyles: Object.fromEntries(
+      BUILDING_IDS.map((buildingId) => {
+        const style = storedStyles?.[buildingId] ?? defaults[buildingId];
+        return [
+          buildingId,
+          {
+            floorColor: style.floorColor,
+            wallColor: style.wallColor,
+          },
+        ];
+      }),
+    ) as BuildingSurfaceStyles,
     backgroundId: snapshot.backgroundId,
     accentColor: snapshot.accentColor,
     weather: snapshot.weather,
@@ -158,12 +176,19 @@ export function readRoomSnapshot(state: RoomSnapshot): RoomSnapshot {
 
 export function roomSnapshotsEqual(a: RoomSnapshot, b: RoomSnapshot) {
   if (
-    a.floorColor !== b.floorColor ||
-    a.wallColor !== b.wallColor ||
     a.backgroundId !== b.backgroundId ||
     a.accentColor !== b.accentColor ||
     a.weather !== b.weather ||
     a.placedItems.length !== b.placedItems.length
+  ) {
+    return false;
+  }
+
+  if (
+    BUILDING_IDS.some((buildingId) => (
+      a.surfaceStyles[buildingId].floorColor !== b.surfaceStyles[buildingId].floorColor ||
+      a.surfaceStyles[buildingId].wallColor !== b.surfaceStyles[buildingId].wallColor
+    ))
   ) {
     return false;
   }
@@ -335,8 +360,34 @@ export const useRoomStore = create<RoomState>((set, get) => {
         future: [],
       });
     },
-    setFloorColor: (floorColor) => commitRoom({ ...readRoomSnapshot(get()), floorColor }),
-    setWallColor: (wallColor) => commitRoom({ ...readRoomSnapshot(get()), wallColor }),
+    setFloorColor: (floorColor) => {
+      const state = get();
+      const room = readRoomSnapshot(state);
+      commitRoom({
+        ...room,
+        surfaceStyles: {
+          ...room.surfaceStyles,
+          [state.activeBuildingId]: {
+            ...room.surfaceStyles[state.activeBuildingId],
+            floorColor,
+          },
+        },
+      });
+    },
+    setWallColor: (wallColor) => {
+      const state = get();
+      const room = readRoomSnapshot(state);
+      commitRoom({
+        ...room,
+        surfaceStyles: {
+          ...room.surfaceStyles,
+          [state.activeBuildingId]: {
+            ...room.surfaceStyles[state.activeBuildingId],
+            wallColor,
+          },
+        },
+      });
+    },
     setBackgroundId: (backgroundId) => {
       if (get().backgroundId === backgroundId) return;
       commitRoom({ ...readRoomSnapshot(get()), backgroundId }, { readyBackgroundId: null });

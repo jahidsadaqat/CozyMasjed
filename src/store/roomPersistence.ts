@@ -30,6 +30,10 @@ import {
   isBackgroundId,
 } from '../theme/backgrounds';
 import {
+  createDefaultBuildingSurfaceStyles,
+  type BuildingSurfaceStyles,
+} from '../theme/surfaceStyles';
+import {
   isValidPlacement,
   getInitialRoomSnapshot,
   readRoomSnapshot,
@@ -38,17 +42,21 @@ import {
   useRoomStore,
 } from './roomStore';
 
-const STORAGE_KEY = 'deen-rooms:room:v7';
+const STORAGE_KEY = 'deen-rooms:room:v9';
+const LEGACY_V8_STORAGE_KEY = 'deen-rooms:room:v8';
+const LEGACY_V7_STORAGE_KEY = 'deen-rooms:room:v7';
 const LEGACY_V6_STORAGE_KEY = 'deen-rooms:room:v6';
 const LEGACY_V5_STORAGE_KEY = 'deen-rooms:room:v5';
 const LEGACY_V4_STORAGE_KEY = 'deen-rooms:room:v4';
 const LEGACY_V3_STORAGE_KEY = 'deen-rooms:room:v3';
 const LEGACY_V2_STORAGE_KEY = 'deen-rooms:room:v2';
 const LEGACY_V1_STORAGE_KEY = 'deen-rooms:room:v1';
-const STORAGE_VERSION = 7;
-const LEGACY_STORAGE_VERSIONS = [1, 2, 3, 4, 5, 6] as const;
+const STORAGE_VERSION = 9;
+const LEGACY_STORAGE_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 const STORAGE_KEYS = [
   STORAGE_KEY,
+  LEGACY_V8_STORAGE_KEY,
+  LEGACY_V7_STORAGE_KEY,
   LEGACY_V6_STORAGE_KEY,
   LEGACY_V5_STORAGE_KEY,
   LEGACY_V4_STORAGE_KEY,
@@ -84,6 +92,26 @@ function isQuarterTurn(value: unknown): value is QuarterTurn {
   return value === 0 || value === 90 || value === 180 || value === 270;
 }
 
+function parseBuildingSurfaceStyles(value: unknown): BuildingSurfaceStyles | null {
+  if (!isRecord(value)) return null;
+  const styles = createDefaultBuildingSurfaceStyles();
+  for (const buildingId of BUILDING_IDS) {
+    const style = value[buildingId];
+    if (
+      !isRecord(style) ||
+      !isColor(style.floorColor) ||
+      !isColor(style.wallColor)
+    ) {
+      return null;
+    }
+    styles[buildingId] = {
+      floorColor: style.floorColor,
+      wallColor: style.wallColor,
+    };
+  }
+  return styles;
+}
+
 const CATALOG_ID_ALIASES: Readonly<Record<string, string>> = {
   'imported-model-05': 'imported-model-01',
   'imported-model-29': 'imported-model-10',
@@ -111,10 +139,10 @@ type LegacyGrid = {
 const LEGACY_ROOM_SIZE = 4.4;
 const LEGACY_FLOOR_TOP = 0.04;
 const LEGACY_WALL_INSET = -2.035;
-const LEGACY_UPPER_FLOOR_TOP = 2.071;
 
 function getLegacyGrid(item: PlacedItem): LegacyGrid | null {
   if (item.level === 'ground') {
+    if (item.surface === 'ceiling') return null;
     if (item.surface === 'floor') {
       return {
         columns: 8,
@@ -137,27 +165,7 @@ function getLegacyGrid(item: PlacedItem): LegacyGrid | null {
     };
   }
 
-  if (item.buildingId !== 'arched-atrium') return null;
-  if (item.surface === 'floor') {
-    return {
-      columns: 6,
-      rows: 2,
-      cellSize: CELL_SIZE,
-      rowSize: CELL_SIZE,
-      originX: -1.65,
-      originY: LEGACY_UPPER_FLOOR_TOP,
-      originZ: -1.65,
-    };
-  }
-  return {
-    columns: item.surface === 'wallL' ? 2 : 6,
-    rows: 3,
-    cellSize: CELL_SIZE,
-    rowSize: 0.5,
-    originX: item.surface === 'wallL' ? -1.869 : -1.65,
-    originY: LEGACY_UPPER_FLOOR_TOP,
-    originZ: item.surface === 'wallR' ? -1.869 : -1.65,
-  };
+  return null;
 }
 
 function legacyPlacementToWorld(item: PlacedItem): WorldPoint {
@@ -280,7 +288,7 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
     gridX,
     gridY,
     rotation,
-    surface,
+    surface: storedSurface,
     level: storedLevel,
     zoneId: storedZoneId,
     attachment: storedAttachment,
@@ -298,8 +306,16 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
     : isPlacementLevel(storedLevel)
       ? storedLevel
       : null;
-  const zoneId = storedZoneId === undefined && buildingId && level &&
-      (surface === 'floor' || surface === 'wallL' || surface === 'wallR')
+  const migratesHangingLampToWall =
+    (catalogId === 'imported-model-43' || catalogId === 'imported-model-44') &&
+    (storedSurface === 'floor' || storedSurface === 'ceiling');
+  const surface = migratesHangingLampToWall ? 'wallL' : storedSurface;
+  const resolvedGridX = migratesHangingLampToWall ? 0 : gridX;
+  const resolvedGridY = migratesHangingLampToWall ? 1 : gridY;
+  const zoneId = migratesHangingLampToWall && buildingId && level
+    ? getDefaultPlacementZoneId(buildingId, level, 'wallL')
+    : storedZoneId === undefined && buildingId && level &&
+      (surface === 'floor' || surface === 'wallL' || surface === 'wallR' || surface === 'ceiling')
     ? getDefaultPlacementZoneId(buildingId, level, surface)
     : isPlacementZoneId(storedZoneId)
       ? storedZoneId
@@ -312,10 +328,10 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
     id.length === 0 ||
     typeof catalogId !== 'string' ||
     !catalogById[catalogId] ||
-    !Number.isInteger(gridX) ||
-    !Number.isInteger(gridY) ||
+    !Number.isInteger(resolvedGridX) ||
+    !Number.isInteger(resolvedGridY) ||
     !isQuarterTurn(rotation) ||
-    (surface !== 'floor' && surface !== 'wallL' && surface !== 'wallR')
+    (surface !== 'floor' && surface !== 'wallL' && surface !== 'wallR' && surface !== 'ceiling')
   ) {
     return null;
   }
@@ -323,8 +339,8 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
     id,
     buildingId,
     catalogId,
-    gridX: gridX as number,
-    gridY: gridY as number,
+    gridX: resolvedGridX as number,
+    gridY: resolvedGridY as number,
     rotation,
     surface,
     level,
@@ -437,8 +453,7 @@ function parseRoomSnapshot(value: unknown, storageVersion: number): RoomSnapshot
   if (!isRecord(value)) return null;
   const {
     placedItems,
-    floorColor,
-    wallColor,
+    surfaceStyles: storedSurfaceStyles,
     backgroundId: storedBackgroundId,
     backgroundColor: legacyBackgroundColor,
     accentColor,
@@ -457,11 +472,16 @@ function parseRoomSnapshot(value: unknown, storageVersion: number): RoomSnapshot
       : legacyLighting === 'day'
         ? 'sunny'
         : defaultWeatherMode;
+  // v8 exposed floor/wall swatches but never applied them to model-room GLBs.
+  // Start every migrated building at its authored look instead of suddenly
+  // tinting an existing room after this feature becomes functional.
+  const surfaceStyles = storageVersion < STORAGE_VERSION || storedSurfaceStyles === undefined
+    ? createDefaultBuildingSurfaceStyles()
+    : parseBuildingSurfaceStyles(storedSurfaceStyles);
   if (
     !Array.isArray(placedItems) ||
     placedItems.length > MAX_PERSISTED_ITEMS ||
-    !isColor(floorColor) ||
-    !isColor(wallColor) ||
+    !surfaceStyles ||
     !isColor(accentColor)
   ) {
     return null;
@@ -472,7 +492,7 @@ function parseRoomSnapshot(value: unknown, storageVersion: number): RoomSnapshot
     : parseCurrentPlacedItems(placedItems);
   if (!parsedItems) return null;
 
-  return { placedItems: parsedItems, floorColor, wallColor, backgroundId, accentColor, weather };
+  return { placedItems: parsedItems, surfaceStyles, backgroundId, accentColor, weather };
 }
 
 function parseStoredRoom(raw: string | null): ParsedStoredRoom | null {
@@ -512,19 +532,28 @@ function clonePlacedItem(item: PlacedItem): PlacedItem {
   };
 }
 
+function isStarterPlacedItem(item: PlacedItem) {
+  return item.id.startsWith('starter-v');
+}
+
 function seedEmptyBuildings(room: RoomSnapshot, previousRevision: number): RoomSnapshot {
   if (previousRevision >= STARTER_LAYOUT_REVISION) return room;
 
   let placedItems = room.placedItems.map(clonePlacedItem);
   for (const buildingId of BUILDING_IDS) {
     const buildingItems = placedItems.filter((item) => item.buildingId === buildingId);
-    // Starter IDs are stable even after users move or rotate those items. A
-    // non-empty room is therefore always user-owned and must never be replaced
-    // merely because every ID still has the starter prefix.
-    if (buildingItems.length > 0) continue;
+    const shouldRefreshStarterLayout =
+      buildingItems.length > 0 && buildingItems.every(isStarterPlacedItem);
+
+    // A non-empty room with any user-created item is user-owned and must never
+    // be replaced by a design migration. Old starter-only rooms can be safely
+    // refreshed so visual polish revisions are actually visible after update.
+    if (buildingItems.length > 0 && !shouldRefreshStarterLayout) continue;
 
     const layout = starterLayouts[buildingId];
-    const preservedItems = placedItems;
+    const preservedItems = shouldRefreshStarterLayout
+      ? placedItems.filter((item) => item.buildingId !== buildingId)
+      : placedItems;
     if (preservedItems.length + layout.length > MAX_PERSISTED_ITEMS) continue;
 
     const candidateItems = preservedItems.map(clonePlacedItem);

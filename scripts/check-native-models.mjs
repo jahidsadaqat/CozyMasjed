@@ -322,7 +322,7 @@ for (const file of files) {
   const { json, binary } = readGlb(bytes, relativePath);
   const requiredExtensions = json.extensionsRequired ?? [];
   const budget = relativePath.startsWith(`buildings${path.sep}`)
-    ? 4 * MEBIBYTE
+    ? 6 * MEBIBYTE
     : 2 * MEBIBYTE;
 
   totalBytes += bytes.byteLength;

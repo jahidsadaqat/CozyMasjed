@@ -25,14 +25,14 @@ function placementTags(zone: PlacementZone) {
   };
 }
 
-function FloorTarget({ zone }: { zone: PlacementZone }) {
+function HorizontalTarget({ zone }: { zone: PlacementZone }) {
   const rowSize = zone.rowSize ?? zone.cellSize;
   return (
     <mesh
       ref={configurePlacementRaycastTarget}
       position={[
         zone.originX + (zone.columns * zone.cellSize) / 2,
-        zone.originY - 0.005,
+        zone.originY + (zone.surface === 'ceiling' ? 0.005 : -0.005),
         zone.originZ + (zone.rows * rowSize) / 2,
       ]}
       rotation={[-Math.PI / 2, 0, 0]}
@@ -140,8 +140,8 @@ export function PlacementZoneTargets({ buildingId }: { buildingId: BuildingId })
   return (
     <group userData={{ placementTargetsForBuilding: buildingId }}>
       {getPlacementZones(buildingId).map((zone) =>
-        zone.surface === 'floor' ? (
-          <FloorTarget key={zone.id} zone={zone} />
+        zone.surface === 'floor' || zone.surface === 'ceiling' ? (
+          <HorizontalTarget key={zone.id} zone={zone} />
         ) : (
           <WallTargets key={zone.id} zone={zone} />
         ),

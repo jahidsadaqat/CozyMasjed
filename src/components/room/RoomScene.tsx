@@ -1,51 +1,57 @@
-import { Suspense } from 'react';
-import { GodRay } from '../GodRay';
-import { DEFAULT_BUILDING_ID } from '../../domain/buildings';
+import { useThree } from '@react-three/fiber/native';
+import { Suspense, useEffect } from 'react';
+import * as THREE from 'three';
+import { weatherVisualProfiles, type WeatherMode } from '../../domain/weather';
 import { useRoomStore } from '../../store/roomStore';
-import { weatherVisualProfiles } from '../../domain/weather';
 import { ModelValidationScene } from '../models/ModelValidationScene';
 import { PlacedItems } from './PlacedItems';
-import { RoomShell } from './RoomShell';
-import { ArchedAtriumShell } from './ArchedAtriumShell';
+import { ModelRoomShell } from './ModelRoomShell';
 import { SceneBackdrop } from './SceneBackdrop';
 
 // Kept off in the product scene. Set true only while validating the complete asset pack.
 const SHOW_MODEL_VALIDATION_SCENE = false;
 
+function WeatherRendererSettings({ weather }: { weather: WeatherMode }) {
+  const gl = useThree((state) => state.gl);
+  const profile = weatherVisualProfiles[weather];
+
+  useEffect(() => {
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = profile.sceneExposure;
+  }, [gl, profile.sceneExposure]);
+
+  return null;
+}
+
 export function RoomScene() {
-  const floorColor = useRoomStore((state) => state.floorColor);
-  const wallColor = useRoomStore((state) => state.wallColor);
   const backgroundId = useRoomStore((state) => state.backgroundId);
-  const accentColor = useRoomStore((state) => state.accentColor);
   const weather = useRoomStore((state) => state.weather);
   const activeBuildingId = useRoomStore((state) => state.activeBuildingId);
-  const weatherProfile = weatherVisualProfiles[weather];
-  const roomAmbientIntensity = Math.max(weatherProfile.ambientIntensity, 0.55);
-  const roomHemisphereIntensity = Math.max(weatherProfile.hemisphereIntensity, 0.45);
-  const roomDirectionalIntensity = Math.max(weatherProfile.directionalIntensity, 0.9);
+  const profile = weatherVisualProfiles[weather];
 
   return (
     <>
+      <WeatherRendererSettings weather={weather} />
       <SceneBackdrop backgroundId={backgroundId} weather={weather} />
-      <ambientLight intensity={roomAmbientIntensity} color={weatherProfile.ambientColor} />
+      <ambientLight intensity={profile.ambientIntensity} color={profile.ambientColor} />
       <hemisphereLight
-        intensity={roomHemisphereIntensity}
-        color={weatherProfile.hemisphereSkyColor}
-        groundColor={weatherProfile.hemisphereGroundColor}
+        intensity={profile.hemisphereIntensity}
+        color={profile.hemisphereSkyColor}
+        groundColor={profile.hemisphereGroundColor}
       />
       <directionalLight
-        position={[4, 7, 3]}
-        intensity={roomDirectionalIntensity}
-        color={weatherProfile.directionalColor}
+        position={[4.5, 7.5, 5.5]}
+        intensity={profile.directionalIntensity}
+        color={profile.directionalColor}
       />
-      {activeBuildingId === DEFAULT_BUILDING_ID ? (
-        <RoomShell floorColor={floorColor} wallColor={wallColor} accentColor={accentColor} />
-      ) : (
-        <Suspense fallback={null}>
-          <ArchedAtriumShell />
-        </Suspense>
-      )}
-      {activeBuildingId === DEFAULT_BUILDING_ID ? <GodRay /> : null}
+      <directionalLight
+        position={[-4, 4.5, 3]}
+        intensity={profile.fillIntensity}
+        color={profile.fillColor}
+      />
+      <Suspense fallback={null}>
+        <ModelRoomShell buildingId={activeBuildingId} />
+      </Suspense>
       <PlacedItems />
       {SHOW_MODEL_VALIDATION_SCENE ? (
         <Suspense fallback={null}>

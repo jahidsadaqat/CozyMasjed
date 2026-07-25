@@ -2,6 +2,7 @@ import { Canvas } from '@react-three/fiber/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import * as THREE from 'three';
 import { DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_ZOOM } from '../../domain/camera';
 import { RoomScene } from './RoomScene';
 import {
@@ -118,7 +119,6 @@ export function RoomCanvas() {
       >
         <Canvas
           orthographic
-          flat
           // R3F Native already uses PixelRatio.get(), so Expo GL renders at
           // the device's native Retina resolution without a dpr prop.
           camera={{ position: [...DEFAULT_CAMERA_POSITION], zoom: DEFAULT_CAMERA_ZOOM, near: 0.1, far: 100 }}
@@ -131,6 +131,8 @@ export function RoomCanvas() {
           style={styles.canvas}
           onCreated={(state) => {
             state.gl.setClearColor(0x000000, 1);
+            state.gl.toneMapping = THREE.ACESFilmicToneMapping;
+            state.gl.toneMappingExposure = 1.1;
             setEditorRootState(state);
           }}
         >

@@ -15,8 +15,8 @@ export type CatalogCategory =
   | 'Decor'
   | 'Wall'
   | 'Buildings';
-export type PlacementSurface = 'floor' | 'wallL' | 'wallR';
-export type AttachmentRole = 'cat' | 'figure';
+export type PlacementSurface = 'floor' | 'wallL' | 'wallR' | 'ceiling';
+export type AttachmentRole = 'cat' | 'figure' | 'display';
 export type AttachmentSlot = {
   id: string;
   accepts: readonly AttachmentRole[];

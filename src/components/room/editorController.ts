@@ -427,10 +427,9 @@ function pointOnCameraPlane(x: number, y: number, target: THREE.Vector3, result:
 }
 
 function keepTargetInsideRoom(target: THREE.Vector3) {
-  const isAtrium = useRoomStore.getState().activeBuildingId === 'arched-atrium';
-  target.x = THREE.MathUtils.clamp(target.x, isAtrium ? -1.15 : -0.82, isAtrium ? 1.15 : 0.82);
-  target.y = THREE.MathUtils.clamp(target.y, 1.47, isAtrium ? 2.85 : 2.17);
-  target.z = THREE.MathUtils.clamp(target.z, isAtrium ? -1.2 : -0.82, 0.82);
+  target.x = THREE.MathUtils.clamp(target.x, -0.82, 0.82);
+  target.y = THREE.MathUtils.clamp(target.y, 1.47, 2.17);
+  target.z = THREE.MathUtils.clamp(target.z, -0.82, 0.82);
 }
 
 export function prepareEditorPan(x: number, y: number) {

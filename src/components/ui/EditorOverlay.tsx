@@ -43,7 +43,12 @@ import {
 import { captureSaveAndShareRoom } from '../../services/roomSnapshot';
 import { useRoomStore } from '../../store/roomStore';
 import { backgroundOptions, type BackgroundId } from '../../theme/backgrounds';
-import { floorSwatches, palette, wallSwatches } from '../../theme/palette';
+import { palette } from '../../theme/palette';
+import {
+  getSurfaceStyleOptions,
+  ORIGINAL_SURFACE_TINT,
+  type SurfaceStyleOption,
+} from '../../theme/surfaceStyles';
 import { BuildingSwitcher } from './BuildingSwitcher';
 
 type OpenPanel = 'catalog' | 'style' | 'weather' | null;
@@ -77,20 +82,6 @@ const styleSections: readonly { id: StyleSection; label: string }[] = [
   { id: 'floor', label: 'Floor' },
   { id: 'walls', label: 'Walls' },
 ];
-const styleColorNames: Readonly<Record<string, string>> = {
-  '#A96E49': 'Terracotta wood',
-  '#C99362': 'Honey oak',
-  '#8E6047': 'Warm walnut',
-  '#6F5141': 'Dark walnut',
-  '#D9C3A0': 'Sand oak',
-  '#F4E6C8': 'Cream',
-  '#D8E5D0': 'Soft sage',
-  '#C7DDD8': 'Teal mist',
-  '#E8CBC8': 'Soft blush',
-  '#CED9E9': 'Powder blue',
-  '#E9DCCB': 'Warm linen',
-};
-
 function WeatherGlyph({ weather, color, size = 20 }: { weather: WeatherMode; color: string; size?: number }) {
   if (weather === 'cloudy') return <Cloud color={color} size={size} />;
   if (weather === 'rainy') return <CloudRain color={color} size={size} />;
@@ -370,25 +361,25 @@ function CatalogTray({ onClose }: { onClose: () => void }) {
 
 function ColorPicker({
   label,
-  colors,
+  options,
   selected,
   onSelect,
 }: {
   label: string;
-  colors: readonly string[];
+  options: readonly SurfaceStyleOption[];
   selected: string;
   onSelect: (color: string) => void;
 }) {
   return (
     <View accessibilityLabel={`${label} colors`} accessibilityRole="radiogroup" style={styles.styleColorRow}>
-      {colors.map((color) => {
-        const active = color.toLowerCase() === selected.toLowerCase();
-        const colorName = styleColorNames[color.toUpperCase()] ?? color;
+      {options.map((option) => {
+        const active = option.value.toLowerCase() === selected.toLowerCase();
+        const isOriginal = option.value === ORIGINAL_SURFACE_TINT;
         return (
           <Pressable
-            key={color}
+            key={option.value}
             accessibilityHint={`Changes the room ${label.toLowerCase()} color`}
-            accessibilityLabel={`${colorName} ${label.toLowerCase()}`}
+            accessibilityLabel={`${option.name} ${label.toLowerCase()}`}
             accessibilityRole="radio"
             accessibilityState={{ checked: active }}
             aria-checked={active}
@@ -399,7 +390,7 @@ function ColorPicker({
                 return;
               }
               tapFeedback('selection');
-              onSelect(color);
+              onSelect(option.value);
             }}
             style={({ pressed }) => [
               styles.styleSwatchOuter,
@@ -407,7 +398,13 @@ function ColorPicker({
               pressed && styles.buttonPressed,
             ]}
           >
-            <View style={[styles.styleSwatch, { backgroundColor: color }]} />
+            <View style={[styles.styleSwatch, { backgroundColor: option.preview }]}>
+              {isOriginal ? (
+                <View style={styles.originalSwatchBadge}>
+                  <RotateCcw color={palette.paper} size={12} strokeWidth={2.7} />
+                </View>
+              ) : null}
+            </View>
           </Pressable>
         );
       })}
@@ -471,8 +468,13 @@ function BackgroundPicker({
 
 function StylePanel() {
   const [section, setSection] = useState<StyleSection>('background');
-  const floorColor = useRoomStore((state) => state.floorColor);
-  const wallColor = useRoomStore((state) => state.wallColor);
+  const activeBuildingId = useRoomStore((state) => state.activeBuildingId);
+  const floorColor = useRoomStore(
+    (state) => state.surfaceStyles[state.activeBuildingId].floorColor,
+  );
+  const wallColor = useRoomStore(
+    (state) => state.surfaceStyles[state.activeBuildingId].wallColor,
+  );
   const backgroundId = useRoomStore((state) => state.backgroundId);
   const setFloorColor = useRoomStore((state) => state.setFloorColor);
   const setWallColor = useRoomStore((state) => state.setWallColor);
@@ -514,10 +516,20 @@ function StylePanel() {
       <Animated.View key={section} entering={FadeInDown.duration(130)} style={styles.styleChoiceRail}>
         {section === 'background' ? <BackgroundPicker selected={backgroundId} onSelect={setBackgroundId} /> : null}
         {section === 'floor' ? (
-          <ColorPicker label="Floor" colors={floorSwatches} selected={floorColor} onSelect={setFloorColor} />
+          <ColorPicker
+            label="Floor"
+            options={getSurfaceStyleOptions(activeBuildingId, 'floor')}
+            selected={floorColor}
+            onSelect={setFloorColor}
+          />
         ) : null}
         {section === 'walls' ? (
-          <ColorPicker label="Walls" colors={wallSwatches} selected={wallColor} onSelect={setWallColor} />
+          <ColorPicker
+            label="Walls"
+            options={getSurfaceStyleOptions(activeBuildingId, 'walls')}
+            selected={wallColor}
+            onSelect={setWallColor}
+          />
         ) : null}
       </Animated.View>
     </Animated.View>
@@ -1121,6 +1133,16 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
     borderColor: 'rgba(78,59,49,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  originalSwatchBadge: {
+    width: 19,
+    height: 19,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(78,59,49,0.74)',
   },
   styleBackgroundScroller: {
     flexGrow: 0,

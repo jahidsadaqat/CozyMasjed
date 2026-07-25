@@ -104,24 +104,48 @@ function SelectionFootprint({
   );
   const columnSize = placementGrid?.cellSize ?? CELL_SIZE;
   const rowSize = placementGrid?.rowSize ?? columnSize;
-  const color = invalid ? '#D96F66' : '#C2BEC8';
-  const baseRadius = Math.max(size.width * columnSize, size.height * rowSize) / 2;
-  const radius = baseRadius + (item.surface === 'floor' ? 0.24 : 0.07);
+  const fillColor = invalid ? '#D96F66' : '#EFE7D8';
+  const ringColor = invalid ? '#B94E48' : '#7A5A40';
+  const visualWidth = size.width * columnSize;
+  const visualHeight = size.height * rowSize;
+  const floorRadiusX = THREE.MathUtils.clamp(visualWidth * 0.4 + 0.035, 0.18, 0.72);
+  const floorRadiusZ = THREE.MathUtils.clamp(visualHeight * 0.4 + 0.035, 0.18, 0.72);
+  const wallRadiusX = THREE.MathUtils.clamp(visualWidth * 0.36 + 0.03, 0.16, 0.55);
+  const wallRadiusY = THREE.MathUtils.clamp(visualHeight * 0.36 + 0.03, 0.16, 0.55);
 
-  if (item.surface === 'floor') {
+  if (item.surface === 'floor' || item.surface === 'ceiling') {
     return (
-      <mesh position={[x, y + 0.012, z]} renderOrder={3} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[radius, 48]} />
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={invalid ? 0.66 : 0.58}
-          depthWrite={false}
-          polygonOffset
-          polygonOffsetFactor={-1}
-          polygonOffsetUnits={-1}
-        />
-      </mesh>
+      <group
+        position={[x, y + (item.surface === 'ceiling' ? -0.012 : 0.012), z]}
+        renderOrder={3}
+        rotation={[item.surface === 'ceiling' ? Math.PI / 2 : -Math.PI / 2, 0, 0]}
+        scale={[floorRadiusX, floorRadiusZ, 1]}
+      >
+        <mesh renderOrder={3}>
+          <circleGeometry args={[1, 48]} />
+          <meshBasicMaterial
+            color={fillColor}
+            transparent
+            opacity={invalid ? 0.58 : 0.38}
+            depthWrite={false}
+            polygonOffset
+            polygonOffsetFactor={-1}
+            polygonOffsetUnits={-1}
+          />
+        </mesh>
+        <mesh position={[0, 0, 0.002]} renderOrder={4}>
+          <ringGeometry args={[0.86, 1, 48]} />
+          <meshBasicMaterial
+            color={ringColor}
+            transparent
+            opacity={invalid ? 0.9 : 0.72}
+            depthWrite={false}
+            polygonOffset
+            polygonOffsetFactor={-2}
+            polygonOffsetUnits={-2}
+          />
+        </mesh>
+      </group>
     );
   }
 
@@ -129,18 +153,37 @@ function SelectionFootprint({
   const position: [number, number, number] = item.surface === 'wallL' ? [x + 0.018, centerY, z] : [x, centerY, z + 0.018];
   const rotation: [number, number, number] = item.surface === 'wallL' ? [0, Math.PI / 2, 0] : [0, 0, 0];
   return (
-    <mesh position={position} renderOrder={3} rotation={rotation}>
-      <circleGeometry args={[radius, 48]} />
-      <meshBasicMaterial
-        color={color}
-        transparent
-        opacity={invalid ? 0.58 : 0.46}
-        depthWrite={false}
-        polygonOffset
-        polygonOffsetFactor={-1}
-        polygonOffsetUnits={-1}
-      />
-    </mesh>
+    <group
+      position={position}
+      renderOrder={3}
+      rotation={rotation}
+      scale={[wallRadiusX, wallRadiusY, 1]}
+    >
+      <mesh renderOrder={3}>
+        <circleGeometry args={[1, 48]} />
+        <meshBasicMaterial
+          color={fillColor}
+          transparent
+          opacity={invalid ? 0.5 : 0.32}
+          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
+        />
+      </mesh>
+      <mesh position={[0, 0, 0.002]} renderOrder={4}>
+        <ringGeometry args={[0.86, 1, 48]} />
+        <meshBasicMaterial
+          color={ringColor}
+          transparent
+          opacity={invalid ? 0.86 : 0.68}
+          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-2}
+          polygonOffsetUnits={-2}
+        />
+      </mesh>
+    </group>
   );
 }
 

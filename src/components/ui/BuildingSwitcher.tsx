@@ -65,7 +65,7 @@ export function BuildingSwitcher({ disabled = false, onBeforeChange }: BuildingS
       <View style={styles.buildingChoices}>
         {BUILDING_OPTIONS.map((building, index) => {
           const active = index === activeIndex;
-          const Icon = building.id === 'cozy-masjid' ? House : Building2;
+          const Icon = index === 0 ? House : Building2;
           return (
             <Pressable
               key={building.id}
