@@ -2,22 +2,29 @@ import * as THREE from 'three';
 import type { CatalogItem, PlacementSurface } from '../catalog/types';
 import type { BuildingId } from './buildings';
 
-export const GRID_SIZE = 8;
+export const ROOM_FOOTPRINT_SCALE = 1.15;
+export const BASE_GRID_SIZE = 8;
+export const BASE_ROOM_SIZE = 4.4;
+export const GRID_SIZE = 9;
 export const WALL_ROWS = 4;
-export const ROOM_SIZE = 4.4;
+export const ROOM_SIZE = BASE_ROOM_SIZE * ROOM_FOOTPRINT_SCALE;
 export const CELL_SIZE = ROOM_SIZE / GRID_SIZE;
+export const WALL_ROW_SIZE = BASE_ROOM_SIZE / BASE_GRID_SIZE;
 export const FLOOR_TOP = 0.04;
-export const WALL_INSET = -2.035;
+export const WALL_INSET = -2.035 * ROOM_FOOTPRINT_SCALE;
 export const UPPER_FLOOR_TOP = 2.095;
-export const CEILING_MOUNT_HEIGHT = FLOOR_TOP + WALL_ROWS * CELL_SIZE - 0.05;
+export const CEILING_MOUNT_HEIGHT = FLOOR_TOP + WALL_ROWS * WALL_ROW_SIZE - 0.05;
 export const WALL_MOUNT_CLEARANCE = 0.018;
 export const FLOOR_PLACEMENT_SNAP_STEP = 0.25;
+export const WALL_PLACEMENT_SNAP_STEP = 0.25;
 
 // Catalog footprints describe the visual area an item needs in the room.
 // Collision uses a slightly tighter box so neighbouring objects can sit
 // naturally close without their visible meshes intersecting.
 const FLOOR_COLLISION_INSET = 0.15;
 const MIN_FLOOR_COLLISION_SIZE = 0.35;
+const WALL_COLLISION_INSET = 0.125;
+const MIN_WALL_COLLISION_SIZE = 0.5;
 
 export const PLACEMENT_LEVELS = ['ground', 'upper'] as const;
 export type PlacementLevel = (typeof PLACEMENT_LEVELS)[number];
@@ -28,14 +35,6 @@ export const PLACEMENT_ZONE_IDS = [
   'peach-sunrise-ground-left',
   'peach-sunrise-ground-back',
   'peach-sunrise-ground-ceiling',
-  'brick-noor-ground-floor',
-  'brick-noor-ground-left',
-  'brick-noor-ground-back',
-  'brick-noor-ground-ceiling',
-  'charcoal-noor-ground-floor',
-  'charcoal-noor-ground-left',
-  'charcoal-noor-ground-back',
-  'charcoal-noor-ground-ceiling',
   'violet-dusk-ground-floor',
   'violet-dusk-ground-left',
   'violet-dusk-ground-back',
@@ -96,14 +95,14 @@ function rectangularCells(columns: readonly number[], rows: readonly number[]) {
   return cellSet(rows.flatMap((gridY) => columns.map((gridX) => [gridX, gridY] as const)));
 }
 
-// The current four shells place the pointed window one cell closer to the
+// Both current shells place the pointed window one cell closer to the
 // back corner than the retired room shell did.
-const splitRoomWindowOpening = rectangularCells([3, 4], [1, 2]);
-const splitRoomMihrabOpening = rectangularCells([3, 4], [0, 1, 2]);
+const splitRoomWindowOpening = rectangularCells([3, 4, 5], [1, 2]);
+const splitRoomMihrabOpening = rectangularCells([3, 4, 5], [0, 1, 2]);
 
 function splitRoomZones(
   buildingId: BuildingId,
-  prefix: 'peach-sunrise' | 'brick-noor' | 'charcoal-noor' | 'violet-dusk',
+  prefix: 'peach-sunrise' | 'violet-dusk',
 ): readonly PlacementZone[] {
   return [
     {
@@ -126,6 +125,7 @@ function splitRoomZones(
       columns: GRID_SIZE,
       rows: WALL_ROWS,
       cellSize: CELL_SIZE,
+      rowSize: WALL_ROW_SIZE,
       originX: WALL_INSET,
       originY: FLOOR_TOP,
       originZ: -ROOM_SIZE / 2,
@@ -140,6 +140,7 @@ function splitRoomZones(
       columns: GRID_SIZE,
       rows: WALL_ROWS,
       cellSize: CELL_SIZE,
+      rowSize: WALL_ROW_SIZE,
       originX: -ROOM_SIZE / 2,
       originY: FLOOR_TOP,
       originZ: WALL_INSET,
@@ -163,8 +164,6 @@ function splitRoomZones(
 
 const placementZones: readonly PlacementZone[] = [
   ...splitRoomZones('peach-sunrise-room', 'peach-sunrise'),
-  ...splitRoomZones('brick-noor-room', 'brick-noor'),
-  ...splitRoomZones('charcoal-noor-room', 'charcoal-noor'),
   ...splitRoomZones('violet-dusk-room', 'violet-dusk'),
 ] as const;
 
@@ -259,8 +258,13 @@ export function isWithinGrid(placed: PlacedItem, item: CatalogItem) {
   }
 
   if (grid.blockedCells) {
-    for (let gridY = placed.gridY; gridY < placed.gridY + size.height; gridY += 1) {
-      for (let gridX = placed.gridX; gridX < placed.gridX + size.width; gridX += 1) {
+    const cellBoundaryEpsilon = 1e-6;
+    const firstRow = Math.floor(placed.gridY + cellBoundaryEpsilon);
+    const lastRow = Math.ceil(placed.gridY + size.height - cellBoundaryEpsilon);
+    const firstColumn = Math.floor(placed.gridX + cellBoundaryEpsilon);
+    const lastColumn = Math.ceil(placed.gridX + size.width - cellBoundaryEpsilon);
+    for (let gridY = firstRow; gridY < lastRow; gridY += 1) {
+      for (let gridX = firstColumn; gridX < lastColumn; gridX += 1) {
         if (grid.blockedCells.has(`${gridX}:${gridY}`)) return false;
       }
     }
@@ -305,13 +309,25 @@ export function placementsOverlap(
   const bSize = getPlacementSize(bCatalog, b.surface, b.rotation);
 
   const bounds = (placed: PlacedItem, size: PlacementSize) => {
-    const insetX =
+    const collisionInset =
       placed.surface === 'floor'
-        ? Math.min(FLOOR_COLLISION_INSET, Math.max(0, (size.width - MIN_FLOOR_COLLISION_SIZE) / 2))
+        ? FLOOR_COLLISION_INSET
+        : placed.surface === 'wallL' || placed.surface === 'wallR'
+          ? WALL_COLLISION_INSET
+          : 0;
+    const minimumSize =
+      placed.surface === 'floor'
+        ? MIN_FLOOR_COLLISION_SIZE
+        : placed.surface === 'wallL' || placed.surface === 'wallR'
+          ? MIN_WALL_COLLISION_SIZE
+          : 0;
+    const insetX =
+      collisionInset > 0
+        ? Math.min(collisionInset, Math.max(0, (size.width - minimumSize) / 2))
         : 0;
     const insetY =
-      placed.surface === 'floor'
-        ? Math.min(FLOOR_COLLISION_INSET, Math.max(0, (size.height - MIN_FLOOR_COLLISION_SIZE) / 2))
+      collisionInset > 0
+        ? Math.min(collisionInset, Math.max(0, (size.height - minimumSize) / 2))
         : 0;
     return {
       left: placed.gridX + insetX,
@@ -375,16 +391,23 @@ export function worldToPlacement(
   const snapStep =
     zone.surface === 'floor' || zone.surface === 'ceiling'
       ? FLOOR_PLACEMENT_SNAP_STEP
-      : 1;
+      : WALL_PLACEMENT_SNAP_STEP;
   const snap = (value: number) => Math.round(value / snapStep) * snapStep;
-  const gridX = snap((horizontalWorld - horizontalOrigin) / zone.cellSize - size.width / 2);
-  const gridY =
+  const unclampedGridX = snap(
+    (horizontalWorld - horizontalOrigin) / zone.cellSize - size.width / 2,
+  );
+  const unclampedGridY =
     zone.surface === 'floor' || zone.surface === 'ceiling'
       ? snap((point.z - zone.originZ) / rowSize - size.height / 2)
-      : Math.round(
+      : snap(
           (point.y - zone.originY - 0.1) / rowSize -
             (centerWallItemOnPoint ? size.height / 2 : 0),
         );
+  // A pointer can touch the visible trim while the item's centre still fits
+  // inside the room. Clamp the snapped footprint instead of showing a false
+  // red rejection at the top and side edges.
+  const gridX = THREE.MathUtils.clamp(unclampedGridX, 0, zone.columns - size.width);
+  const gridY = THREE.MathUtils.clamp(unclampedGridY, 0, zone.rows - size.height);
   return {
     gridX,
     gridY,

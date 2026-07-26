@@ -26,7 +26,7 @@ import {
   Wind,
   X,
 } from 'lucide-react-native';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -111,6 +111,7 @@ function RoundButton({
   accessibilityHint,
   expanded,
   feedback = 'ui',
+  triggerOnPressIn = false,
 }: {
   label: string;
   icon: ReactNode;
@@ -120,7 +121,14 @@ function RoundButton({
   accessibilityHint?: string;
   expanded?: boolean;
   feedback?: InteractionFeedbackEvent | false;
+  triggerOnPressIn?: boolean;
 }) {
+  const triggeredOnPressInRef = useRef(false);
+  const runAction = () => {
+    if (feedback) tapFeedback(feedback);
+    onPress();
+  };
+
   return (
     <Pressable
       accessibilityHint={accessibilityHint}
@@ -130,9 +138,20 @@ function RoundButton({
       aria-expanded={expanded}
       disabled={disabled}
       onPress={() => {
-        if (feedback) tapFeedback(feedback);
-        onPress();
+        if (triggerOnPressIn && triggeredOnPressInRef.current) {
+          triggeredOnPressInRef.current = false;
+          return;
+        }
+        runAction();
       }}
+      onPressIn={
+        triggerOnPressIn
+          ? () => {
+              triggeredOnPressInRef.current = true;
+              runAction();
+            }
+          : undefined
+      }
       style={({ pressed }) => [
         styles.roundButton,
         active && styles.roundButtonActive,
@@ -589,6 +608,7 @@ function SelectedItemActions() {
         feedback={false}
         icon={<Trash2 color="#B85C4C" size={20} />}
         onPress={deleteSelected}
+        triggerOnPressIn
       />
     </View>
   );

@@ -620,30 +620,36 @@ export const useRoomStore = create<RoomState>((set, get) => {
       return committed;
     },
     deleteSelected: () => {
-      const state = get();
-      if (
-        !state.selectedItemId ||
-        !state.placedItems.some(
-          (item) => item.id === state.selectedItemId && item.buildingId === state.activeBuildingId,
-        )
-      ) return;
-      const removedIds = new Set([
-        state.selectedItemId,
-        ...state.placedItems
-          .filter((item) => item.attachment?.hostItemId === state.selectedItemId)
-          .map((item) => item.id),
-      ]);
-      const committed = commitRoom(
-        {
-          ...readRoomSnapshot(state),
-          placedItems: clonePlacedItems(state.placedItems.filter((item) => !removedIds.has(item.id))),
-        },
-        {
+      let deleted = false;
+      set((state) => {
+        if (
+          !state.selectedItemId ||
+          !state.placedItems.some(
+            (item) =>
+              item.id === state.selectedItemId &&
+              item.buildingId === state.activeBuildingId,
+          )
+        ) {
+          return state;
+        }
+
+        const removedIds = new Set([
+          state.selectedItemId,
+          ...state.placedItems
+            .filter((item) => item.attachment?.hostItemId === state.selectedItemId)
+            .map((item) => item.id),
+        ]);
+        const before = readRoomSnapshot(state);
+        deleted = true;
+        return {
+          placedItems: state.placedItems.filter((item) => !removedIds.has(item.id)),
           ...clearEditorPatch,
           readyModelItemIds: state.readyModelItemIds.filter((id) => !removedIds.has(id)),
-        },
-      );
-      if (committed) emitInteractionFeedback('delete');
+          past: [...state.past, before].slice(-HISTORY_LIMIT),
+          future: [],
+        };
+      });
+      if (deleted) emitInteractionFeedback('delete');
     },
     undo: () => {
       const state = get();

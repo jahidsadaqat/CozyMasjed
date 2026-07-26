@@ -9,8 +9,8 @@ import {
   type BuildingId,
 } from '../domain/buildings';
 import {
-  CELL_SIZE,
   DEFAULT_PLACEMENT_LEVEL,
+  FLOOR_PLACEMENT_SNAP_STEP,
   getDefaultPlacementZoneId,
   getPlacementSize,
   getPlacementZones,
@@ -19,6 +19,7 @@ import {
   isWithinGrid,
   placementToWorld,
   placementsOverlap,
+  WALL_PLACEMENT_SNAP_STEP,
   type PlacedItem,
   type QuarterTurn,
 } from '../domain/grid';
@@ -42,7 +43,8 @@ import {
   useRoomStore,
 } from './roomStore';
 
-const STORAGE_KEY = 'deen-rooms:room:v9';
+const STORAGE_KEY = 'deen-rooms:room:v10';
+const LEGACY_V9_STORAGE_KEY = 'deen-rooms:room:v9';
 const LEGACY_V8_STORAGE_KEY = 'deen-rooms:room:v8';
 const LEGACY_V7_STORAGE_KEY = 'deen-rooms:room:v7';
 const LEGACY_V6_STORAGE_KEY = 'deen-rooms:room:v6';
@@ -51,10 +53,12 @@ const LEGACY_V4_STORAGE_KEY = 'deen-rooms:room:v4';
 const LEGACY_V3_STORAGE_KEY = 'deen-rooms:room:v3';
 const LEGACY_V2_STORAGE_KEY = 'deen-rooms:room:v2';
 const LEGACY_V1_STORAGE_KEY = 'deen-rooms:room:v1';
-const STORAGE_VERSION = 9;
-const LEGACY_STORAGE_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
+const STORAGE_VERSION = 10;
+const SURFACE_STYLE_STORAGE_VERSION = 9;
+const LEGACY_STORAGE_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 const STORAGE_KEYS = [
   STORAGE_KEY,
+  LEGACY_V9_STORAGE_KEY,
   LEGACY_V8_STORAGE_KEY,
   LEGACY_V7_STORAGE_KEY,
   LEGACY_V6_STORAGE_KEY,
@@ -66,6 +70,11 @@ const STORAGE_KEYS = [
 ] as const;
 const MAX_PERSISTED_ITEMS = 128;
 const WRITE_DEBOUNCE_MS = 300;
+const LEGACY_DEFAULT_BUILDING_ID: BuildingId = 'violet-dusk-room';
+const RETIRED_BUILDING_IDS = new Set([
+  'brick-noor-room',
+  'charcoal-noor-room',
+]);
 
 type StorageEnvelope = {
   version: typeof STORAGE_VERSION;
@@ -84,6 +93,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function belongsToRetiredBuilding(value: unknown) {
+  return (
+    isRecord(value) &&
+    typeof value.buildingId === 'string' &&
+    RETIRED_BUILDING_IDS.has(value.buildingId)
+  );
+}
+
 function isColor(value: unknown): value is string {
   return typeof value === 'string' && /^#[\dA-Fa-f]{6}([\dA-Fa-f]{2})?$/.test(value);
 }
@@ -97,6 +114,10 @@ function parseBuildingSurfaceStyles(value: unknown): BuildingSurfaceStyles | nul
   const styles = createDefaultBuildingSurfaceStyles();
   for (const buildingId of BUILDING_IDS) {
     const style = value[buildingId];
+    // A one-house v9 save legitimately has no Peach entry. Keep the authored
+    // default for newly restored houses while still rejecting malformed data
+    // for any style entry that is present.
+    if (style === undefined) continue;
     if (
       !isRecord(style) ||
       !isColor(style.floorColor) ||
@@ -110,6 +131,21 @@ function parseBuildingSurfaceStyles(value: unknown): BuildingSurfaceStyles | nul
     };
   }
   return styles;
+}
+
+function isPersistedGridCoordinate(
+  value: unknown,
+  surface: unknown,
+) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return false;
+  const snapStep =
+    surface === 'floor' || surface === 'ceiling'
+      ? FLOOR_PLACEMENT_SNAP_STEP
+      : surface === 'wallL' || surface === 'wallR'
+        ? WALL_PLACEMENT_SNAP_STEP
+        : null;
+  if (!snapStep) return false;
+  return Math.abs(value / snapStep - Math.round(value / snapStep)) <= 1e-6;
 }
 
 const CATALOG_ID_ALIASES: Readonly<Record<string, string>> = {
@@ -137,28 +173,34 @@ type LegacyGrid = {
 };
 
 const LEGACY_ROOM_SIZE = 4.4;
+const LEGACY_GRID_SIZE = 8;
+const LEGACY_WALL_ROWS = 4;
+const LEGACY_CELL_SIZE = LEGACY_ROOM_SIZE / LEGACY_GRID_SIZE;
 const LEGACY_FLOOR_TOP = 0.04;
 const LEGACY_WALL_INSET = -2.035;
+const LEGACY_CEILING_MOUNT_HEIGHT =
+  LEGACY_FLOOR_TOP + LEGACY_WALL_ROWS * LEGACY_CELL_SIZE - 0.05;
 
 function getLegacyGrid(item: PlacedItem): LegacyGrid | null {
   if (item.level === 'ground') {
-    if (item.surface === 'ceiling') return null;
-    if (item.surface === 'floor') {
+    if (item.surface === 'floor' || item.surface === 'ceiling') {
       return {
-        columns: 8,
-        rows: 8,
-        cellSize: CELL_SIZE,
-        rowSize: CELL_SIZE,
+        columns: LEGACY_GRID_SIZE,
+        rows: LEGACY_GRID_SIZE,
+        cellSize: LEGACY_CELL_SIZE,
+        rowSize: LEGACY_CELL_SIZE,
         originX: -LEGACY_ROOM_SIZE / 2,
-        originY: LEGACY_FLOOR_TOP,
+        originY: item.surface === 'ceiling'
+          ? LEGACY_CEILING_MOUNT_HEIGHT
+          : LEGACY_FLOOR_TOP,
         originZ: -LEGACY_ROOM_SIZE / 2,
       };
     }
     return {
-      columns: 8,
-      rows: 4,
-      cellSize: CELL_SIZE,
-      rowSize: CELL_SIZE,
+      columns: LEGACY_GRID_SIZE,
+      rows: LEGACY_WALL_ROWS,
+      cellSize: LEGACY_CELL_SIZE,
+      rowSize: LEGACY_CELL_SIZE,
       originX: item.surface === 'wallL' ? LEGACY_WALL_INSET : -LEGACY_ROOM_SIZE / 2,
       originY: LEGACY_FLOOR_TOP,
       originZ: item.surface === 'wallR' ? LEGACY_WALL_INSET : -LEGACY_ROOM_SIZE / 2,
@@ -175,7 +217,7 @@ function legacyPlacementToWorld(item: PlacedItem): WorldPoint {
 
   const size = getPlacementSize(catalogItem, item.surface, item.rotation);
   const horizontal = grid.originX + (item.gridX + size.width / 2) * grid.cellSize;
-  if (item.surface === 'floor') {
+  if (item.surface === 'floor' || item.surface === 'ceiling') {
     return [
       horizontal,
       grid.originY,
@@ -244,8 +286,15 @@ function findLegacyPlacement(
     let order = 0;
     for (const zone of zones) {
       const size = getPlacementSize(catalogItem, zone.surface, item.rotation);
-      for (let gridY = 0; gridY <= zone.rows - size.height; gridY += 1) {
-        for (let gridX = 0; gridX <= zone.columns - size.width; gridX += 1) {
+      const step = zone.surface === 'floor' || zone.surface === 'ceiling'
+        ? FLOOR_PLACEMENT_SNAP_STEP
+        : WALL_PLACEMENT_SNAP_STEP;
+      const maxGridY = Math.floor((zone.rows - size.height) / step);
+      const maxGridX = Math.floor((zone.columns - size.width) / step);
+      for (let gridYIndex = 0; gridYIndex <= maxGridY; gridYIndex += 1) {
+        const gridY = gridYIndex * step;
+        for (let gridXIndex = 0; gridXIndex <= maxGridX; gridXIndex += 1) {
+          const gridX = gridXIndex * step;
           const candidate: PlacedItem = {
             ...item,
             gridX,
@@ -297,7 +346,7 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
     ? CATALOG_ID_ALIASES[storedCatalogId] ?? storedCatalogId
     : storedCatalogId;
   const buildingId = storedBuildingId === undefined
-    ? defaultBuildingId
+    ? LEGACY_DEFAULT_BUILDING_ID
     : isBuildingId(storedBuildingId)
       ? storedBuildingId
       : null;
@@ -328,8 +377,8 @@ function parsePlacedItem(value: unknown): PlacedItem | null {
     id.length === 0 ||
     typeof catalogId !== 'string' ||
     !catalogById[catalogId] ||
-    !Number.isInteger(resolvedGridX) ||
-    !Number.isInteger(resolvedGridY) ||
+    !isPersistedGridCoordinate(resolvedGridX, surface) ||
+    !isPersistedGridCoordinate(resolvedGridY, surface) ||
     !isQuarterTurn(rotation) ||
     (surface !== 'floor' && surface !== 'wallL' && surface !== 'wallR' && surface !== 'ceiling')
   ) {
@@ -375,6 +424,9 @@ function parseCurrentPlacedItems(values: readonly unknown[]): PlacedItem[] | nul
   const parsedItems: PlacedItem[] = [];
   const ids = new Set<string>();
   for (const value of values) {
+    // Older builds persisted rooms for four shells. Retired-room items are
+    // intentionally discarded without invalidating the user's remaining room.
+    if (belongsToRetiredBuilding(value)) continue;
     const item = parsePlacedItem(value);
     if (!item || ids.has(item.id)) return null;
     const itemCatalog = catalogById[item.catalogId];
@@ -399,6 +451,7 @@ function migrateLegacyPlacedItems(values: readonly unknown[]): PlacedItem[] {
   const sourceItems: PlacedItem[] = [];
   const ids = new Set<string>();
   for (const value of values) {
+    if (belongsToRetiredBuilding(value)) continue;
     const item = parsePlacedItem(value);
     if (!item || ids.has(item.id) || !isWithinLegacyGrid(item)) {
       if (__DEV__) console.warn('[Deen Rooms] Skipped one invalid legacy room item.');
@@ -475,7 +528,8 @@ function parseRoomSnapshot(value: unknown, storageVersion: number): RoomSnapshot
   // v8 exposed floor/wall swatches but never applied them to model-room GLBs.
   // Start every migrated building at its authored look instead of suddenly
   // tinting an existing room after this feature becomes functional.
-  const surfaceStyles = storageVersion < STORAGE_VERSION || storedSurfaceStyles === undefined
+  const surfaceStyles =
+    storageVersion < SURFACE_STYLE_STORAGE_VERSION || storedSurfaceStyles === undefined
     ? createDefaultBuildingSurfaceStyles()
     : parseBuildingSurfaceStyles(storedSurfaceStyles);
   if (
@@ -512,7 +566,9 @@ function parseStoredRoom(raw: string | null): ParsedStoredRoom | null {
       room,
       activeBuildingId: isBuildingId(envelope.activeBuildingId)
         ? envelope.activeBuildingId
-        : defaultBuildingId,
+        : envelope.activeBuildingId === undefined
+          ? LEGACY_DEFAULT_BUILDING_ID
+          : defaultBuildingId,
       starterLayoutRevision:
         typeof envelope.starterLayoutRevision === 'number' &&
         Number.isInteger(envelope.starterLayoutRevision) &&
@@ -541,9 +597,15 @@ function seedEmptyBuildings(room: RoomSnapshot, previousRevision: number): RoomS
 
   let placedItems = room.placedItems.map(clonePlacedItem);
   for (const buildingId of BUILDING_IDS) {
+    // Revision 21 only reintroduces Peach. A revision-20 user may have
+    // intentionally emptied or rearranged Violet, so never seed/reset that
+    // room as a side effect of adding the second house.
+    if (previousRevision >= 20 && buildingId !== 'peach-sunrise-room') continue;
     const buildingItems = placedItems.filter((item) => item.buildingId === buildingId);
     const shouldRefreshStarterLayout =
-      buildingItems.length > 0 && buildingItems.every(isStarterPlacedItem);
+      previousRevision < 20 &&
+      buildingItems.length > 0 &&
+      buildingItems.every(isStarterPlacedItem);
 
     // A non-empty room with any user-created item is user-owned and must never
     // be replaced by a design migration. Old starter-only rooms can be safely
@@ -598,6 +660,7 @@ export function useRoomPersistence() {
     let lastObserved: string | null = null;
     let lastPersisted: string | null = null;
     let pendingWrite: string | null = null;
+    let scheduledState: RoomState | null = null;
     let writeInFlight: Promise<void> | null = null;
     let restoredRaw: string | null = null;
     let restoredSnapshot = false;
@@ -628,22 +691,32 @@ export function useRoomPersistence() {
       }
     };
 
+    const captureScheduledState = () => {
+      const state = scheduledState;
+      scheduledState = null;
+      if (!state) return;
+      const serialized = serializeState(state);
+      if (serialized === lastObserved) return;
+      lastObserved = serialized;
+      pendingWrite = serialized;
+    };
+
     const flush = async () => {
       if (timer) {
         clearTimeout(timer);
         timer = null;
       }
+      captureScheduledState();
       await drainWrites();
     };
 
     const scheduleWrite = (state: RoomState) => {
       if (restoring) return;
-      const serialized = serializeState(state);
-      if (serialized === lastObserved) return;
-      lastObserved = serialized;
-      pendingWrite = serialized;
+      scheduledState = state;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
+        timer = null;
+        captureScheduledState();
         void flush();
       }, WRITE_DEBOUNCE_MS);
     };

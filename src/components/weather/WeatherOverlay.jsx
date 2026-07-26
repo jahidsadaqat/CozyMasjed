@@ -92,6 +92,11 @@ export default function WeatherOverlay({ mode = null, soundOn = false, dom }) {
 
     let w = 0, h = 0, diag = 0, dpr = 1;
     let raf = 0, last = performance.now(), t = 0;
+    const frameIntervalForMode = (activeMode) => {
+      if (activeMode === "rain" || activeMode === "wind") return 1000 / 24;
+      if (activeMode === "cloudy") return 1000 / 10;
+      return 1000 / 12;
+    };
 
     /* ================= REGN — tre dybdelag ================= */
     const RAIN_LAYERS = [
@@ -487,7 +492,9 @@ export default function WeatherOverlay({ mode = null, soundOn = false, dom }) {
 
     /* ================= LOOP ================= */
     function resize() {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // The illustrated overlay is deliberately soft. Native-size pixels are
+      // enough and avoid continuously repainting a 2x/3x phone canvas.
+      dpr = Math.min(window.devicePixelRatio || 1, 1);
       w = canvas.clientWidth;
       h = canvas.clientHeight;
       diag = Math.hypot(w, h);
@@ -498,14 +505,20 @@ export default function WeatherOverlay({ mode = null, soundOn = false, dom }) {
     }
 
     function frame(now) {
-      const dt = Math.min((now - last) / 1000, 0.05);
-      last = now;
+      raf = 0;
+      const m = modeRef.current;
+      const frameInterval = frameIntervalForMode(m);
+      const elapsed = now - last;
+      if (elapsed < frameInterval) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+      const dt = Math.min(elapsed / 1000, 0.05);
+      last = now - (elapsed % frameInterval);
       t += dt;
       ctx.clearRect(0, 0, w, h);
 
       const gust = Math.max(0, 0.45 + 0.34 * Math.sin(t * 0.37) + 0.21 * Math.sin(t * 1.13 + 1.7));
-      const m = modeRef.current;
-
       if (m === "rain") drawRain(dt, gust);
       else if (m === "wind") drawWind(dt, gust);
       else if (m === "sunny") drawSun(dt);
@@ -515,9 +528,22 @@ export default function WeatherOverlay({ mode = null, soundOn = false, dom }) {
       raf = requestAnimationFrame(frame);
     }
 
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+        return;
+      }
+      if (!reduced && !raf) {
+        last = performance.now();
+        raf = requestAnimationFrame(frame);
+      }
+    }
+
     const ro = new ResizeObserver(resize);
     ro.observe(canvas);
     resize();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     if (!reduced) raf = requestAnimationFrame(frame);
     else {
@@ -532,6 +558,7 @@ export default function WeatherOverlay({ mode = null, soundOn = false, dom }) {
 
     return () => {
       cancelAnimationFrame(raf);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       ro.disconnect();
     };
   }, []);

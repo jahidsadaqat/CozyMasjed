@@ -27,7 +27,7 @@ export function BuildingSwitcher({ disabled = false, onBeforeChange }: BuildingS
     setActiveBuildingId(buildingId);
     const building = BUILDING_OPTIONS[nextIndex];
     void AccessibilityInfo.announceForAccessibility(
-      `${building.name}, building ${nextIndex + 1} of ${BUILDING_OPTIONS.length}`,
+      `${building.name}, house ${nextIndex + 1} of ${BUILDING_OPTIONS.length}`,
     );
   };
 
@@ -42,12 +42,12 @@ export function BuildingSwitcher({ disabled = false, onBeforeChange }: BuildingS
 
   return (
     <View
-      accessibilityLabel={`Choose a building. ${BUILDING_OPTIONS[activeIndex]?.name} is selected.`}
+      accessibilityLabel={`Choose a house. ${BUILDING_OPTIONS[activeIndex]?.name} is selected.`}
       accessibilityRole="radiogroup"
       style={[styles.root, disabled && styles.disabled]}
     >
       <Pressable
-        accessibilityLabel="Previous building"
+        accessibilityLabel="Previous house"
         accessibilityRole="button"
         accessibilityState={{ disabled: disabled || !hasPrevious }}
         disabled={disabled || !hasPrevious}
@@ -70,7 +70,7 @@ export function BuildingSwitcher({ disabled = false, onBeforeChange }: BuildingS
             <Pressable
               key={building.id}
               accessibilityHint={`Opens ${building.name}`}
-              accessibilityLabel={`Building ${index + 1}: ${building.name}`}
+              accessibilityLabel={`House ${index + 1}: ${building.name}`}
               accessibilityRole="radio"
               accessibilityState={{ checked: active, disabled }}
               aria-checked={active}
@@ -95,7 +95,7 @@ export function BuildingSwitcher({ disabled = false, onBeforeChange }: BuildingS
       </View>
 
       <Pressable
-        accessibilityLabel="Next building"
+        accessibilityLabel="Next house"
         accessibilityRole="button"
         accessibilityState={{ disabled: disabled || !hasNext }}
         disabled={disabled || !hasNext}

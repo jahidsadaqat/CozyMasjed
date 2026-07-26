@@ -2,6 +2,7 @@ import { RoundedBox } from '@react-three/drei/native';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { ProceduralModelKind } from '../../catalog/types';
+import { WALL_ROW_SIZE } from '../../domain/grid';
 import { useRoomStore } from '../../store/roomStore';
 import { palette } from '../../theme/palette';
 
@@ -44,6 +45,13 @@ const darkWood = '#80523C';
 const beadCoral = '#C86E55';
 const beadTeal = '#4F887D';
 const beadIvory = '#F1DFAF';
+const variantAuthoredHeights: Readonly<Record<ProceduralModelKind, number>> = {
+  'tasbih-crescent-hook': 1.0,
+  'tasbih-mihrab-rack': 1.15,
+  'tasbih-geometric-rail': 1.0,
+  'tasbih-mashrabiya-board': 1.05,
+  'tasbih-palm-hanger': 1.18,
+};
 
 function BeadLoop({
   x,
@@ -299,6 +307,11 @@ export function TasbihWallHolder({
   onReady,
   placedItemId,
 }: TasbihWallHolderProps) {
+  const verticalOffset = Math.max(
+    0,
+    (WALL_ROW_SIZE - variantAuthoredHeights[variant] * scale) / 2,
+  );
+
   useEffect(() => {
     onReady?.(catalogId);
     if (placedItemId) useRoomStore.getState().markModelReady(placedItemId);
@@ -311,10 +324,11 @@ export function TasbihWallHolder({
     <group
       position={position}
       rotation={rotation}
-      scale={scale}
       userData={{ catalogId, placedItemId }}
     >
-      <HolderVariant variant={variant} />
+      <group position={[0, verticalOffset, 0]} scale={scale}>
+        <HolderVariant variant={variant} />
+      </group>
     </group>
   );
 }

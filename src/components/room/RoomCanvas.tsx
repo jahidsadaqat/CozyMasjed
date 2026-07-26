@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber/native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Platform, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as THREE from 'three';
 import { DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_ZOOM } from '../../domain/camera';
@@ -19,8 +19,6 @@ import {
 } from './editorController';
 
 export function RoomCanvas() {
-  const [appState, setAppState] = useState(AppState.currentState);
-  const renderContinuously = appState === 'active' || appState === 'unknown';
   const pendingPanRef = useRef<{ x: number; y: number; translationX: number } | null>(null);
   const panFrameRef = useRef<number | null>(null);
 
@@ -55,9 +53,7 @@ export function RoomCanvas() {
   }, []);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', setAppState);
     return () => {
-      subscription.remove();
       cancelPanUpdate();
     };
   }, [cancelPanUpdate]);
@@ -122,15 +118,20 @@ export function RoomCanvas() {
           // R3F Native already uses PixelRatio.get(), so Expo GL renders at
           // the device's native Retina resolution without a dpr prop.
           camera={{ position: [...DEFAULT_CAMERA_POSITION], zoom: DEFAULT_CAMERA_ZOOM, near: 0.1, far: 100 }}
-          // Particle and light motion need a continuous loop. Pausing it while
-          // iOS backgrounds the app avoids spending GPU/CPU off-screen.
-          frameloop={renderContinuously ? 'always' : 'never'}
-          gl={{ antialias: true, alpha: false, preserveDrawingBuffer: Platform.OS === 'web' }}
+          // The room is mostly static. Rendering only after camera, placement,
+          // style or asset changes keeps iPhone GPU temperature and battery use
+          // predictable instead of repainting the full Retina scene at 60/120 Hz.
+          frameloop="demand"
+          gl={{
+            antialias: Platform.OS === 'web',
+            alpha: true,
+            preserveDrawingBuffer: Platform.OS === 'web',
+          }}
           shadows={false}
           pointerEvents="none"
           style={styles.canvas}
           onCreated={(state) => {
-            state.gl.setClearColor(0x000000, 1);
+            state.gl.setClearColor(0x000000, 0);
             state.gl.toneMapping = THREE.ACESFilmicToneMapping;
             state.gl.toneMappingExposure = 1.1;
             setEditorRootState(state);

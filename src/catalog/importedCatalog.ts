@@ -87,18 +87,23 @@ const wall = (
   width = 2,
   height = 2,
   modelScale = 0.48,
-): ImportedDefinition => ({
-  id,
-  name,
-  category,
-  allowedSurfaces: ['wallL', 'wallR'],
-  footprint: { width, depth: 1 },
-  wallFootprint: { width, height },
-  modelScale,
-  placeholderColor: category === 'Lights' ? palette.gold : palette.terracotta,
-  emitsLight: category === 'Lights',
-  rotatable: false,
-});
+): ImportedDefinition => {
+  const compactWallDecor = category !== 'Lights';
+  return {
+    id,
+    name,
+    category,
+    allowedSurfaces: ['wallL', 'wallR'],
+    footprint: { width: compactWallDecor ? 1 : width, depth: 1 },
+    wallFootprint: compactWallDecor ? { width: 1, height: 1 } : { width, height },
+    // Meshy wall props share an approximately 1.9-unit authored height.
+    // 0.27 therefore matches the existing Wall Sconce's ~0.51 m visual size.
+    modelScale: compactWallDecor ? 0.27 : modelScale,
+    placeholderColor: category === 'Lights' ? palette.gold : palette.terracotta,
+    emitsLight: category === 'Lights',
+    rotatable: false,
+  };
+};
 
 const minbarVariant = (id: string, name: string): ImportedDefinition => ({
   id,
@@ -109,23 +114,38 @@ const minbarVariant = (id: string, name: string): ImportedDefinition => ({
   placeholderColor: '#9A6748',
 });
 
-const prayerRugVariant = (id: string, name: string): ImportedDefinition => ({
-  id,
-  name,
-  category: 'Prayer Rugs',
-  footprint: { width: 2, depth: 2 },
-  modelScale: 0.76,
-  placeholderColor: palette.mutedTeal,
-  attachmentSlots: [
-    {
-      id: 'prayer-end',
-      accepts: ['cat', 'figure'],
-      localPosition: [-0.46, 0.065, 0],
-      hitPosition: [0, 0.065, 0],
-      hitSize: { width: 1.45, depth: 0.82 },
-    },
-  ],
-});
+const prayerRugVariant = (
+  id: string,
+  name: string,
+  standingEnd: readonly [number, number] = [-0.46, 0],
+): ImportedDefinition => {
+  const oppositeEnd = [-standingEnd[0], -standingEnd[1]] as const;
+  return {
+    id,
+    name,
+    category: 'Prayer Rugs',
+    footprint: { width: 2, depth: 2 },
+    modelScale: 0.76,
+    placeholderColor: palette.mutedTeal,
+    attachmentSlots: [
+      {
+        // Keep this id for existing saved rooms. It is the rug's foot end.
+        id: 'prayer-end',
+        accepts: ['cat', 'figure'],
+        localPosition: [standingEnd[0], 0.065, standingEnd[1]],
+        hitPosition: [standingEnd[0], 0.065, standingEnd[1]],
+        hitSize: { width: 0.68, depth: 0.56 },
+      },
+      {
+        id: 'prayer-top',
+        accepts: ['cat', 'figure'],
+        localPosition: [oppositeEnd[0], 0.065, oppositeEnd[1]],
+        hitPosition: [oppositeEnd[0], 0.065, oppositeEnd[1]],
+        hitSize: { width: 0.68, depth: 0.56 },
+      },
+    ],
+  };
+};
 
 const prayerAccessory = (
   id: string,
@@ -185,8 +205,8 @@ const definitions: readonly ImportedDefinition[] = [
     category: 'Plants',
     allowedSurfaces: ['wallL', 'wallR'],
     footprint: { width: 1, depth: 1 },
-    wallFootprint: { width: 1, height: 2 },
-    modelScale: 0.3,
+    wallFootprint: { width: 1, height: 1 },
+    modelScale: 0.27,
     rotatable: false,
   },
   { id: 'imported-model-12', name: 'Succulent Bowl', category: 'Plants', footprint: tinyFootprint, modelScale: 0.28 },
@@ -195,7 +215,7 @@ const definitions: readonly ImportedDefinition[] = [
     name: 'Tall Bookcase',
     category: 'Storage',
     footprint: { width: 2, depth: 1 },
-    modelScale: 0.46,
+    modelScale: 0.78,
     attachmentSlots: displaySlots(0.88, { width: 2, depth: 1 }),
   },
   {
@@ -212,8 +232,8 @@ const definitions: readonly ImportedDefinition[] = [
     category: 'Plants',
     allowedSurfaces: ['wallL', 'wallR'],
     footprint: { width: 1, depth: 1 },
-    wallFootprint: { width: 1, height: 2 },
-    modelScale: 0.3,
+    wallFootprint: { width: 1, height: 1 },
+    modelScale: 0.27,
     rotatable: false,
   },
   { id: 'imported-model-16', name: 'Potted Olive Tree', category: 'Plants', footprint: compactFootprint, modelScale: 0.44 },
@@ -227,7 +247,7 @@ const definitions: readonly ImportedDefinition[] = [
     attachmentSlots: displaySlots(0.72, { width: 2, depth: 1 }),
   },
   character('imported-model-19', 'Thobe Figure'),
-  wall('imported-model-20', 'Wall Book Shelf', 'Storage', 2, 2, 0.34),
+  wall('imported-model-20', 'Wall Book Shelf', 'Storage', 1, 1, 0.27),
   pet('imported-model-21', 'Sitting Cream Cat', 0.32),
   pet('imported-model-22', 'Lying Grey Cat', 0.43),
   {
@@ -280,7 +300,7 @@ const definitions: readonly ImportedDefinition[] = [
     allowedSurfaces: ['wallL', 'wallR'],
     footprint: compactFootprint,
     wallFootprint: { width: 1, height: 1 },
-    modelScale: 0.32,
+    modelScale: 0.27,
     placeholderColor: palette.gold,
     emitsLight: true,
     rotatable: false,
@@ -294,7 +314,15 @@ const definitions: readonly ImportedDefinition[] = [
     emitsLight: true,
   },
   { id: 'imported-model-41', name: 'Round Bakhoor Burner', category: 'Decor', footprint: tinyFootprint, modelScale: 0.28 },
-  { id: 'imported-model-42', name: 'Candle Holder', category: 'Lights', footprint: tinyFootprint, modelScale: 0.3, emitsLight: true },
+  {
+    id: 'imported-model-42',
+    name: 'Candle Holder',
+    category: 'Lights',
+    footprint: tinyFootprint,
+    modelScale: 0.16,
+    emitsLight: true,
+    attachmentRole: 'display',
+  },
   {
     id: 'imported-model-43',
     name: 'Mosque Wall Chandelier',
@@ -381,8 +409,8 @@ const definitions: readonly ImportedDefinition[] = [
   minbarVariant('imported-model-71', 'Round Tower Minbar'),
   minbarVariant('imported-model-72', 'Teal Panel Minbar'),
   minbarVariant('imported-model-73', 'Sand Pavilion Minbar'),
-  prayerRugVariant('imported-model-74', 'Double Arch Prayer Rug'),
-  prayerRugVariant('imported-model-75', 'Stepped Arch Prayer Rug'),
+  prayerRugVariant('imported-model-74', 'Double Arch Prayer Rug', [0.46, 0]),
+  prayerRugVariant('imported-model-75', 'Stepped Arch Prayer Rug', [0.46, 0]),
   prayerRugVariant('imported-model-76', 'Sunrise Prayer Rug'),
   prayerRugVariant('imported-model-77', 'Cream Arch Prayer Rug'),
   prayerRugVariant('imported-model-78', 'Star Medallion Prayer Rug'),

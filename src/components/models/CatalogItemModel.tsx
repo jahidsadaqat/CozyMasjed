@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { memo, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { CatalogItem, ProceduralCatalogItem } from '../../catalog/types';
 import { CatalogModel } from './CatalogModel';
@@ -20,7 +20,7 @@ function isProceduralItem(item: CatalogItem): item is ProceduralCatalogItem {
   return Boolean(item.proceduralModel);
 }
 
-export function CatalogItemModel({
+function CatalogItemModelImpl({
   item,
   position = [0, 0.04, 0],
   rotation = item.modelRotation ?? [0, 0, 0],
@@ -66,3 +66,25 @@ export function CatalogItemModel({
     </group>
   );
 }
+
+function vectorEquals(
+  left: readonly number[] | undefined,
+  right: readonly number[] | undefined,
+) {
+  if (left === right) return true;
+  if (!left || !right || left.length !== right.length) return false;
+  return left.every((value, index) => value === right[index]);
+}
+
+export const CatalogItemModel = memo(
+  CatalogItemModelImpl,
+  (previous, next) =>
+    previous.item === next.item &&
+    vectorEquals(previous.position, next.position) &&
+    vectorEquals(previous.rotation, next.rotation) &&
+    previous.scale === next.scale &&
+    previous.onReady === next.onReady &&
+    previous.placedItemId === next.placedItemId &&
+    previous.enablePointLight === next.enablePointLight &&
+    previous.renderOrder === next.renderOrder,
+);

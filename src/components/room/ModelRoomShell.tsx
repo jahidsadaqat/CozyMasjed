@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useThree } from '@react-three/fiber/native';
+import { useEffect, useLayoutEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { buildingById, type BuildingId } from '../../domain/buildings';
-import { weatherVisualProfiles } from '../../domain/weather';
+import { ROOM_FOOTPRINT_SCALE } from '../../domain/grid';
 import { useRoomStore } from '../../store/roomStore';
 import { useModelGLTF } from '../models/useModelGLTF';
 import { PlacementZoneTargets } from './PlacementZoneTargets';
@@ -110,15 +111,20 @@ diffuseColor.rgb = mix(diffuseColor.rgb, surfaceTintedColor, surfaceTintStrength
   return { scene, materials, materialRecords };
 }
 
-export function ModelRoomShell({ buildingId }: { buildingId: BuildingId }) {
-  const weather = useRoomStore((state) => state.weather);
+export function ModelRoomShell({
+  buildingId,
+  onReady,
+}: {
+  buildingId: BuildingId;
+  onReady?: (buildingId: BuildingId) => void;
+}) {
+  const invalidate = useThree((state) => state.invalidate);
   const floorColor = useRoomStore(
     (state) => state.surfaceStyles[buildingId].floorColor,
   );
   const wallColor = useRoomStore(
     (state) => state.surfaceStyles[buildingId].wallColor,
   );
-  const shellTextureLift = weatherVisualProfiles[weather].shellTextureLift;
   const building = buildingById[buildingId];
   if (building.asset === undefined) {
     throw new Error(`Building asset is missing for ${buildingId}.`);
@@ -152,12 +158,16 @@ export function ModelRoomShell({ buildingId }: { buildingId: BuildingId }) {
             ? 0.68
             : 0.82
         : 0;
-      material.emissive.set('#FFFFFF');
-      material.emissiveMap = material.map;
-      material.emissiveIntensity = shellTextureLift;
+      // Walls and floors define the scene's contrast. Self-lighting the full
+      // base-color texture makes every corner equally bright and flattens the
+      // diorama, so only separate practical-light meshes are emissive.
+      material.emissive.set('#000000');
+      material.emissiveMap = null;
+      material.emissiveIntensity = 0;
       material.needsUpdate = true;
     });
-  }, [floorColor, shell, shellTextureLift, wallColor]);
+    invalidate();
+  }, [floorColor, invalidate, shell, wallColor]);
 
   useEffect(() => {
     return () => {
@@ -165,9 +175,18 @@ export function ModelRoomShell({ buildingId }: { buildingId: BuildingId }) {
     };
   }, [shell]);
 
+  useLayoutEffect(() => {
+    onReady?.(buildingId);
+    invalidate();
+  }, [buildingId, invalidate, onReady, shell]);
+
   return (
     <group userData={{ buildingId }}>
-      <primitive object={shell.scene} dispose={null} />
+      <primitive
+        object={shell.scene}
+        dispose={null}
+        scale={[ROOM_FOOTPRINT_SCALE, 1, ROOM_FOOTPRINT_SCALE]}
+      />
       <PlacementZoneTargets buildingId={buildingId} />
     </group>
   );

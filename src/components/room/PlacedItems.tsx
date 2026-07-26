@@ -1,10 +1,22 @@
-import { useFrame } from '@react-three/fiber/native';
-import { Suspense, useCallback, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useFrame, useThree } from '@react-three/fiber/native';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from 'react';
 import * as THREE from 'three';
 import { catalogById } from '../../catalog/catalog';
 import { BlobShadow } from '../BlobShadow';
 import { attachmentSlotHitWorldPosition, resolveItemTransform } from '../../domain/attachments';
 import { CELL_SIZE, getPlacementGrid, getPlacementSize, type PlacedItem } from '../../domain/grid';
+import {
+  getLivingAssetKind,
+  type LivingAssetKind,
+} from '../../domain/livingAssets';
 import { useRoomStore } from '../../store/roomStore';
 import { CatalogItemModel } from '../models/CatalogItemModel';
 import { configurePlacementRaycastTarget } from './editorRaycastLayers';
@@ -19,6 +31,85 @@ function modelRotation(item: PlacedItem, resolvedRotationY?: number): [number, n
 
 const BOING_DURATION = 0.35;
 const MAX_FRAME_DELTA = 0.05;
+const LIVING_ANIMATION_INTERVAL_MS = 1000 / 12;
+
+function stableMotionPhase(key: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < key.length; index += 1) {
+    hash ^= key.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return ((hash >>> 0) / 0x100000000) * Math.PI * 2;
+}
+
+function resetLivingMotion(group: THREE.Group) {
+  group.position.set(0, 0, 0);
+  group.rotation.set(0, 0, 0);
+  group.scale.setScalar(1);
+}
+
+function animateLivingMotion(
+  group: THREE.Group,
+  kind: LivingAssetKind,
+  name: string,
+  time: number,
+  phase: number,
+) {
+  const slow = time + phase;
+  resetLivingMotion(group);
+
+  if (kind === 'cat') {
+    const resting = /\b(lying|sleeping)\b/i.test(name);
+    if (resting) {
+      const breath = Math.sin(slow * 1.7);
+      group.position.z = Math.sin(slow * 0.55) * 0.014;
+      group.position.y = Math.max(0, breath) * 0.004;
+      group.rotation.y = Math.sin(slow * 0.65) * 0.018;
+      group.scale.set(1 - breath * 0.003, 1 + breath * 0.012, 1);
+      return;
+    }
+
+    const step = Math.sin(slow * 3.1);
+    group.position.x = Math.sin(slow * 0.72) * 0.012;
+    group.position.z = Math.sin(slow * 0.9) * 0.032;
+    group.position.y = Math.max(0, step) * 0.012;
+    group.rotation.y = Math.sin(slow * 0.9) * 0.035;
+    group.rotation.z = step * 0.014;
+    return;
+  }
+
+  if (kind === 'plant') {
+    const sway = Math.sin(slow * 0.72);
+    group.position.y = (1 + Math.sin(slow * 1.1)) * 0.002;
+    group.rotation.x = Math.cos(slow * 0.61) * 0.005;
+    group.rotation.z = sway * 0.012;
+    group.scale.setScalar(1 + Math.sin(slow * 0.54) * 0.003);
+    return;
+  }
+
+  if (kind === 'quran') {
+    const breath = Math.sin(slow * 0.82);
+    group.position.y = (1 + breath) * 0.0025;
+    group.rotation.y = Math.sin(slow * 0.48) * 0.006;
+    group.scale.setScalar(1 + breath * 0.004);
+    return;
+  }
+
+  const float = Math.sin(slow * 0.9);
+  group.position.y = (1 + float) * 0.0015;
+  group.rotation.y = Math.sin(slow * 0.52) * 0.007;
+  group.scale.setScalar(1 + float * 0.0025);
+}
+
+function practicalLightPriority(catalogId: string) {
+  const name = catalogById[catalogId]?.name.toLowerCase() ?? '';
+  if (name.includes('wall sconce')) return 100;
+  if (name.includes('candle')) return 90;
+  if (name.includes('floor lamp')) return 80;
+  if (name.includes('wall lantern') || name.includes('wall chandelier')) return 75;
+  if (name.includes('string light')) return 65;
+  return 50;
+}
 
 function easeOutCubic(value: number) {
   return 1 - (1 - value) ** 3;
@@ -38,6 +129,7 @@ function BoingItem({
   onComplete: (itemId: string) => void;
 }) {
   const groupRef = useRef<THREE.Group>(null);
+  const invalidate = useThree((state) => state.invalidate);
   const elapsedRef = useRef(0);
   const finishedRef = useRef(!animate);
 
@@ -52,7 +144,8 @@ function BoingItem({
     elapsedRef.current = 0;
     finishedRef.current = false;
     group.scale.setScalar(0.7);
-  }, [animate]);
+    if (modelReady) invalidate();
+  }, [animate, invalidate, modelReady]);
 
   useFrame((_, frameDelta) => {
     const group = groupRef.current;
@@ -74,6 +167,8 @@ function BoingItem({
       group.scale.setScalar(1);
       finishedRef.current = true;
       onComplete(itemId);
+    } else {
+      invalidate();
     }
   });
 
@@ -105,44 +200,31 @@ function SelectionFootprint({
   const columnSize = placementGrid?.cellSize ?? CELL_SIZE;
   const rowSize = placementGrid?.rowSize ?? columnSize;
   const fillColor = invalid ? '#D96F66' : '#EFE7D8';
-  const ringColor = invalid ? '#B94E48' : '#7A5A40';
   const visualWidth = size.width * columnSize;
   const visualHeight = size.height * rowSize;
-  const floorRadiusX = THREE.MathUtils.clamp(visualWidth * 0.4 + 0.035, 0.18, 0.72);
-  const floorRadiusZ = THREE.MathUtils.clamp(visualHeight * 0.4 + 0.035, 0.18, 0.72);
-  const wallRadiusX = THREE.MathUtils.clamp(visualWidth * 0.36 + 0.03, 0.16, 0.55);
-  const wallRadiusY = THREE.MathUtils.clamp(visualHeight * 0.36 + 0.03, 0.16, 0.55);
+  const floorRadiusX = THREE.MathUtils.clamp(visualWidth * 0.56 + 0.06, 0.38, 0.92);
+  const floorRadiusZ = THREE.MathUtils.clamp(visualHeight * 0.56 + 0.06, 0.38, 0.92);
+  const wallRadiusX = THREE.MathUtils.clamp(visualWidth * 0.5 + 0.05, 0.34, 0.78);
+  const wallRadiusY = THREE.MathUtils.clamp(visualHeight * 0.5 + 0.05, 0.34, 0.78);
 
   if (item.surface === 'floor' || item.surface === 'ceiling') {
     return (
       <group
-        position={[x, y + (item.surface === 'ceiling' ? -0.012 : 0.012), z]}
-        renderOrder={3}
+        position={[x, y + (item.surface === 'ceiling' ? -0.004 : 0.004), z]}
         rotation={[item.surface === 'ceiling' ? Math.PI / 2 : -Math.PI / 2, 0, 0]}
         scale={[floorRadiusX, floorRadiusZ, 1]}
       >
-        <mesh renderOrder={3}>
+        <mesh>
           <circleGeometry args={[1, 48]} />
           <meshBasicMaterial
             color={fillColor}
             transparent
-            opacity={invalid ? 0.58 : 0.38}
+            opacity={invalid ? 0.58 : 0.46}
+            depthTest
             depthWrite={false}
             polygonOffset
             polygonOffsetFactor={-1}
             polygonOffsetUnits={-1}
-          />
-        </mesh>
-        <mesh position={[0, 0, 0.002]} renderOrder={4}>
-          <ringGeometry args={[0.86, 1, 48]} />
-          <meshBasicMaterial
-            color={ringColor}
-            transparent
-            opacity={invalid ? 0.9 : 0.72}
-            depthWrite={false}
-            polygonOffset
-            polygonOffsetFactor={-2}
-            polygonOffsetUnits={-2}
           />
         </mesh>
       </group>
@@ -150,37 +232,25 @@ function SelectionFootprint({
   }
 
   const centerY = y + (size.height * rowSize) / 2;
-  const position: [number, number, number] = item.surface === 'wallL' ? [x + 0.018, centerY, z] : [x, centerY, z + 0.018];
+  const position: [number, number, number] = item.surface === 'wallL' ? [x + 0.004, centerY, z] : [x, centerY, z + 0.004];
   const rotation: [number, number, number] = item.surface === 'wallL' ? [0, Math.PI / 2, 0] : [0, 0, 0];
   return (
     <group
       position={position}
-      renderOrder={3}
       rotation={rotation}
       scale={[wallRadiusX, wallRadiusY, 1]}
     >
-      <mesh renderOrder={3}>
+      <mesh>
         <circleGeometry args={[1, 48]} />
         <meshBasicMaterial
           color={fillColor}
           transparent
-          opacity={invalid ? 0.5 : 0.32}
+          opacity={invalid ? 0.56 : 0.44}
+          depthTest
           depthWrite={false}
           polygonOffset
           polygonOffsetFactor={-1}
           polygonOffsetUnits={-1}
-        />
-      </mesh>
-      <mesh position={[0, 0, 0.002]} renderOrder={4}>
-        <ringGeometry args={[0.86, 1, 48]} />
-        <meshBasicMaterial
-          color={ringColor}
-          transparent
-          opacity={invalid ? 0.86 : 0.68}
-          depthWrite={false}
-          polygonOffset
-          polygonOffsetFactor={-2}
-          polygonOffsetUnits={-2}
         />
       </mesh>
     </group>
@@ -243,6 +313,73 @@ export function PlacedItems() {
   const placementPreview = useRoomStore((state) => state.placementPreview);
   const isCaptureClean = useRoomStore((state) => state.isCaptureClean);
   const readyModelItemIds = useRoomStore((state) => state.readyModelItemIds);
+  const invalidate = useThree((state) => state.invalidate);
+  const livingMotionRefs = useRef(new Map<string, THREE.Group>());
+  const livingMotionCallbacks = useRef(
+    new Map<string, (group: THREE.Group | null) => void>(),
+  );
+  const livingItems = useMemo(
+    () =>
+      items.flatMap((item) => {
+        const catalogItem = catalogById[item.catalogId];
+        const kind = catalogItem ? getLivingAssetKind(catalogItem) : null;
+        return kind
+          ? [{
+              id: item.id,
+              kind,
+              name: catalogItem?.name ?? '',
+              phase: stableMotionPhase(item.id),
+            }]
+          : [];
+      }),
+    [items],
+  );
+  const getLivingMotionRef = useCallback((itemId: string) => {
+    const existing = livingMotionCallbacks.current.get(itemId);
+    if (existing) return existing;
+    const callback = (group: THREE.Group | null) => {
+      if (group) {
+        livingMotionRefs.current.set(itemId, group);
+      } else {
+        livingMotionRefs.current.delete(itemId);
+        livingMotionCallbacks.current.delete(itemId);
+      }
+    };
+    livingMotionCallbacks.current.set(itemId, callback);
+    return callback;
+  }, []);
+
+  useEffect(() => {
+    if (livingItems.length === 0 || isCaptureClean) return;
+    const timer = setInterval(invalidate, LIVING_ANIMATION_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [invalidate, isCaptureClean, livingItems.length]);
+
+  useEffect(() => {
+    if (!isCaptureClean) return;
+    livingMotionRefs.current.forEach(resetLivingMotion);
+    invalidate();
+  }, [invalidate, isCaptureClean]);
+
+  useFrame((state) => {
+    if (isCaptureClean) return;
+    const selectedOrDraggedId = dragPreview?.item.id ?? selectedItemId;
+    livingItems.forEach((livingItem) => {
+      const group = livingMotionRefs.current.get(livingItem.id);
+      if (!group) return;
+      if (livingItem.id === selectedOrDraggedId) {
+        resetLivingMotion(group);
+        return;
+      }
+      animateLivingMotion(
+        group,
+        livingItem.kind,
+        livingItem.name,
+        state.clock.elapsedTime,
+        livingItem.phase,
+      );
+    });
+  });
   const knownItemIdsRef = useRef<Set<string> | null>(null);
   const boingItemIdsRef = useRef<Set<string> | null>(null);
   const knownItemIds = knownItemIdsRef.current ?? new Set(items.map((item) => item.id));
@@ -258,8 +395,18 @@ export function PlacedItems() {
   const finishBoing = useCallback((itemId: string) => {
     boingItemIdsRef.current?.delete(itemId);
   }, []);
-  const activePointLightIds = new Set(
-    items.filter((item) => catalogById[item.catalogId]?.emitsLight).slice(0, 3).map((item) => item.id),
+  const activePointLightIds = useMemo(
+    () => new Set(
+      items
+        .filter((item) => catalogById[item.catalogId]?.emitsLight)
+        .sort(
+          (a, b) =>
+            practicalLightPriority(b.catalogId) - practicalLightPriority(a.catalogId),
+        )
+        .slice(0, 2)
+        .map((item) => item.id),
+    ),
+    [items],
   );
 
   return (
@@ -292,16 +439,18 @@ export function PlacedItems() {
                 modelReady={readyModelItemIds.includes(item.id)}
                 onComplete={finishBoing}
               >
-                <Suspense fallback={null}>
-                  <CatalogItemModel
-                    item={catalogItem}
-                    placedItemId={item.id}
-                    enablePointLight={activePointLightIds.has(item.id)}
-                    position={[0, 0, 0]}
-                    renderOrder={2}
-                    rotation={[0, 0, 0]}
-                  />
-                </Suspense>
+                <group ref={getLivingMotionRef(item.id)}>
+                  <Suspense fallback={null}>
+                    <CatalogItemModel
+                      item={catalogItem}
+                      placedItemId={item.id}
+                      enablePointLight={activePointLightIds.has(item.id)}
+                      position={[0, 0, 0]}
+                      renderOrder={2}
+                      rotation={[0, 0, 0]}
+                    />
+                  </Suspense>
+                </group>
               </BoingItem>
             </group>
           </group>

@@ -13,10 +13,11 @@ import { useEffect, useRef } from "react";
  * enabled: SKAL først sættes true efter et bruger-klik —
  *          browsere blokerer al lyd før første user gesture.
  *
- * Crossfader blødt (~1,2 s) mellem tilstande. Motorer bygges lazy
+ * Crossfader blødt mellem tilstande; Rain og Cloudy bruger længere fades.
  * og genbruges, så gentagne skift ikke lækker noder.
  */
-const MODE_VOL = { sunny: 0.5, cloudy: 0.4, rain: 0.7, wind: 0.6, night: 0.55 };
+const MODE_VOL = { sunny: 0.5, cloudy: 0.18, rain: 0.26, wind: 0.6, night: 0.55 };
+const MODE_FADE_SECONDS = { cloudy: 2.6, rain: 2.3 };
 
 export default function useWeatherAmbience(mode, enabled = false) {
   const acRef = useRef(null);
@@ -44,11 +45,32 @@ export default function useWeatherAmbience(mode, enabled = false) {
     const AC = acRef.current;
     if (AC.state === "suspended") AC.resume();
 
-    function noiseSrc() {
+    function noiseSrc(kind = "white") {
       const n = AC.sampleRate * 2;
       const buf = AC.createBuffer(1, n, AC.sampleRate);
       const d = buf.getChannelData(0);
-      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      if (kind === "pink") {
+        let b0 = 0;
+        let b1 = 0;
+        let b2 = 0;
+        let b3 = 0;
+        let b4 = 0;
+        let b5 = 0;
+        let b6 = 0;
+        for (let i = 0; i < n; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.969 * b2 + white * 0.153852;
+          b3 = 0.8665 * b3 + white * 0.3104856;
+          b4 = 0.55 * b4 + white * 0.5329522;
+          b5 = -0.7616 * b5 - white * 0.016898;
+          d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+          b6 = white * 0.115926;
+        }
+      } else {
+        for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      }
       const src = AC.createBufferSource();
       src.buffer = buf;
       src.loop = true;
@@ -62,44 +84,94 @@ export default function useWeatherAmbience(mode, enabled = false) {
       const timers = [];
 
       if (m === "rain") {
-        const src = noiseSrc();
+        const src = noiseSrc("pink");
         const f = AC.createBiquadFilter();
-        f.type = "bandpass";
-        f.frequency.value = 2400;
-        f.Q.value = 0.35;
+        f.type = "highpass";
+        f.frequency.value = 420;
+        f.Q.value = 0.3;
+        const rainLowpass = AC.createBiquadFilter();
+        rainLowpass.type = "lowpass";
+        rainLowpass.frequency.value = 2600;
+        rainLowpass.Q.value = 0.25;
+        const gRain = AC.createGain();
+        gRain.gain.value = 0.17;
         src.connect(f);
-        f.connect(out);
+        f.connect(rainLowpass);
+        rainLowpass.connect(gRain);
+        gRain.connect(out);
         src.start();
-        // Dråbe-tik oveni susen
+        // Få, bløde dråber oven i den rolige regnflade.
         timers.push(setInterval(() => {
           if (out.gain.value < 0.01) return;
           const o = AC.createOscillator(), g = AC.createGain();
-          o.frequency.value = 1500 + Math.random() * 3500;
-          g.gain.setValueAtTime(0.05 + Math.random() * 0.08, AC.currentTime);
-          g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + 0.05);
+          o.type = "sine";
+          o.frequency.setValueAtTime(720 + Math.random() * 520, AC.currentTime);
+          o.frequency.exponentialRampToValueAtTime(
+            520 + Math.random() * 260,
+            AC.currentTime + 0.16
+          );
+          g.gain.setValueAtTime(0.006 + Math.random() * 0.005, AC.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + 0.16);
           o.connect(g);
           g.connect(out);
           o.start();
-          o.stop(AC.currentTime + 0.06);
-        }, 90));
+          o.stop(AC.currentTime + 0.18);
+        }, 1100));
+
+        const swell = AC.createOscillator();
+        swell.frequency.value = 0.035;
+        const swellDepth = AC.createGain();
+        swellDepth.gain.value = 0.018;
+        swell.connect(swellDepth);
+        swellDepth.connect(gRain.gain);
+        swell.start();
       }
 
-      else if (m === "wind" || m === "cloudy") {
+      else if (m === "cloudy") {
+        const src = noiseSrc("pink");
+        const highpass = AC.createBiquadFilter();
+        highpass.type = "highpass";
+        highpass.frequency.value = 140;
+        highpass.Q.value = 0.3;
+        const f = AC.createBiquadFilter();
+        f.type = "lowpass";
+        f.frequency.value = 1050;
+        const g = AC.createGain();
+        g.gain.value = 0.1;
+        src.connect(highpass);
+        highpass.connect(f);
+        f.connect(g);
+        g.connect(out);
+        src.start();
+        // Langsom, diskret bevægelse uden tung pumpen eller sub-rumlen.
+        const lfo = AC.createOscillator();
+        lfo.frequency.value = 0.035;
+        const lfoF = AC.createGain();
+        lfoF.gain.value = 55;
+        const lfoG = AC.createGain();
+        lfoG.gain.value = 0.012;
+        lfo.connect(lfoF);
+        lfoF.connect(f.frequency);
+        lfo.connect(lfoG);
+        lfoG.connect(g.gain);
+        lfo.start();
+      }
+
+      else if (m === "wind") {
         const src = noiseSrc();
         const f = AC.createBiquadFilter();
         f.type = "lowpass";
-        f.frequency.value = m === "wind" ? 700 : 350;
+        f.frequency.value = 700;
         const g = AC.createGain();
         g.gain.value = 0.7;
         src.connect(f);
         f.connect(g);
         g.connect(out);
         src.start();
-        // Vindstød: LFO på både filter-cutoff og lydstyrke
         const lfo = AC.createOscillator();
-        lfo.frequency.value = m === "wind" ? 0.16 : 0.09;
+        lfo.frequency.value = 0.16;
         const lfoF = AC.createGain();
-        lfoF.gain.value = m === "wind" ? 320 : 90;
+        lfoF.gain.value = 320;
         const lfoG = AC.createGain();
         lfoG.gain.value = 0.28;
         lfo.connect(lfoF);
@@ -221,7 +293,14 @@ export default function useWeatherAmbience(mode, enabled = false) {
     for (const [m, e] of Object.entries(enginesRef.current)) {
       e.out.gain.cancelScheduledValues(now);
       e.out.gain.setValueAtTime(e.out.gain.value, now);
-      e.out.gain.linearRampToValueAtTime(m === mode ? MODE_VOL[m] : 0, now + 1.2);
+      const fadeSeconds = Math.max(
+        MODE_FADE_SECONDS[mode] ?? 1.2,
+        MODE_FADE_SECONDS[m] ?? 1.2
+      );
+      e.out.gain.linearRampToValueAtTime(
+        m === mode ? MODE_VOL[m] : 0,
+        now + fadeSeconds
+      );
     }
   }, [mode, enabled]);
 

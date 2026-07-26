@@ -427,9 +427,9 @@ function pointOnCameraPlane(x: number, y: number, target: THREE.Vector3, result:
 }
 
 function keepTargetInsideRoom(target: THREE.Vector3) {
-  target.x = THREE.MathUtils.clamp(target.x, -0.82, 0.82);
+  target.x = THREE.MathUtils.clamp(target.x, -0.943, 0.943);
   target.y = THREE.MathUtils.clamp(target.y, 1.47, 2.17);
-  target.z = THREE.MathUtils.clamp(target.z, -0.82, 0.82);
+  target.z = THREE.MathUtils.clamp(target.z, -0.943, 0.943);
 }
 
 export function prepareEditorPan(x: number, y: number) {

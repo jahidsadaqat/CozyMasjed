@@ -40,7 +40,7 @@ const BACKGROUND_FRAGMENT_SHADER = `
     color = mix(vec3(luminance), color, uSaturation);
     color *= uExposure;
     color = mix(color, uTint, uTintMix);
-    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), uHasTexture);
     #include <colorspace_fragment>
   }
 `;
