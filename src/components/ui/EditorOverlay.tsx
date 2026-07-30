@@ -93,20 +93,31 @@ const categories: readonly FilterCategory[] = [
   ...catalogCategoryOrder.filter((category) => catalog.some((item) => item.category === category)),
 ];
 
-function interleaveCatalogCategories(items: readonly CatalogItem[]) {
+/**
+ * Builds the "All" tab.
+ *
+ * Categories take turns, but each turn contributes `itemsPerRound` items rather
+ * than one. With two, every category's free item is immediately followed by a
+ * locked one — otherwise the first fifteen cards would all be the free
+ * first-of-category items and the tab would look like nothing is premium.
+ */
+function interleaveCatalogCategories(items: readonly CatalogItem[], itemsPerRound = 2) {
   const categoryBuckets = catalogCategoryOrder
     .map((category) => items.filter((item) => item.category === category))
     .filter((bucket) => bucket.length > 0);
   const showcase: CatalogItem[] = [];
   const includedIds = new Set<string>();
   const longestCategory = Math.max(...categoryBuckets.map((bucket) => bucket.length), 0);
+  const rounds = Math.ceil(longestCategory / itemsPerRound);
 
-  for (let itemIndex = 0; itemIndex < longestCategory; itemIndex += 1) {
+  for (let round = 0; round < rounds; round += 1) {
     for (const bucket of categoryBuckets) {
-      const item = bucket[itemIndex];
-      if (!item) continue;
-      showcase.push(item);
-      includedIds.add(item.id);
+      for (let offset = 0; offset < itemsPerRound; offset += 1) {
+        const item = bucket[round * itemsPerRound + offset];
+        if (!item) continue;
+        showcase.push(item);
+        includedIds.add(item.id);
+      }
     }
   }
 
@@ -642,7 +653,7 @@ function ChromeRail() {
   const openSettings = useOverlayStore((state) => state.openSettings);
 
   return (
-    <View style={styles.chromeRail}>
+    <>
       <Pressable
         accessibilityHint={
           isPremium ? 'Opens your Premium details' : 'Opens the Cozy Masjid Premium plans'
@@ -680,7 +691,7 @@ function ChromeRail() {
       >
         <Settings color={palette.ink} size={20} strokeWidth={2.2} />
       </Pressable>
-    </View>
+    </>
   );
 }
 
@@ -883,12 +894,15 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
     <SafeAreaView pointerEvents="box-none" style={styles.overlay}>
       <View pointerEvents="box-none" style={styles.topControls}>
         <View style={styles.topRow}>
-          <RoundButton
-            label={placingCatalogId ? 'Cancel placement' : panel === 'weather' ? 'Close weather menu' : panel ? 'Close panel' : 'Back'}
-            icon={<ChevronLeft color={palette.ink} size={24} />}
-            onPress={handleBack}
-            feedback={canGoBack ? 'ui' : false}
-          />
+          <View style={styles.topLeft}>
+            <RoundButton
+              label={placingCatalogId ? 'Cancel placement' : panel === 'weather' ? 'Close weather menu' : panel ? 'Close panel' : 'Back'}
+              icon={<ChevronLeft color={palette.ink} size={24} />}
+              onPress={handleBack}
+              feedback={canGoBack ? 'ui' : false}
+            />
+            {!placingCatalogId && !draggingItemId ? <ChromeRail /> : null}
+          </View>
           <View style={styles.topActions}>
             <RoundButton
               accessibilityHint={panel === 'weather' ? 'Closes the weather choices' : 'Opens five weather choices'}
@@ -932,8 +946,6 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
             />
           </View>
         </View>
-
-        {!panel && !placingCatalogId && !draggingItemId && !selectedItemId ? <ChromeRail /> : null}
 
         {__DEV__ && !panel && !placingCatalogId && !draggingItemId ? (
           <Pressable
@@ -1057,9 +1069,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  topLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   topActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   roundButton: {
     width: 44,
@@ -1219,12 +1236,6 @@ const styles = StyleSheet.create({
   },
   devDeleteAllBadgeTextArmed: {
     color: '#A84E42',
-  },
-  chromeRail: {
-    position: 'absolute',
-    top: 58,
-    left: 16,
-    gap: 8,
   },
   premiumButton: {
     backgroundColor: '#FBEFD8',
