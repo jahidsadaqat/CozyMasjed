@@ -19,6 +19,7 @@ type ImportedDefinition = {
   placeholderColor?: string;
   emitsLight?: boolean;
   rotatable?: boolean;
+  animationName?: string;
   attachmentRole?: AttachmentRole;
   attachmentSlots?: readonly AttachmentSlot[];
 };
@@ -191,6 +192,18 @@ const definitions: readonly ImportedDefinition[] = [
   character('imported-model-07', 'Taslim Figure'),
   character('imported-model-08', 'Dua Figure'),
   character('imported-model-09', 'Sujud Figure'),
+  {
+    id: 'imported-model-110',
+    name: 'Animated Salah Figure',
+    category: 'Characters',
+    footprint: { width: 1, depth: 1 },
+    // The animated character is 1.70 units tall. 0.536 resolves to the same
+    // ~0.91 m in-room height as the existing 1.90-unit Salah figures at 0.48.
+    modelScale: 0.536,
+    placeholderColor: palette.mutedTeal,
+    attachmentRole: 'figure',
+    animationName: 'salah',
+  },
   {
     id: 'imported-model-10',
     name: 'Low Bookshelf',

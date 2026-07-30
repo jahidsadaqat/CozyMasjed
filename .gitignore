@@ -58,3 +58,4 @@ tools/__pycache__/
 /assets/models/originals/
 /assets/models/incoming/
 /assets/models/**/*.zip
+/assets/catalog-thumbnails.zip

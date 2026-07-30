@@ -101,16 +101,6 @@ function animateLivingMotion(
   group.scale.setScalar(1 + float * 0.0025);
 }
 
-function practicalLightPriority(catalogId: string) {
-  const name = catalogById[catalogId]?.name.toLowerCase() ?? '';
-  if (name.includes('wall sconce')) return 100;
-  if (name.includes('candle')) return 90;
-  if (name.includes('floor lamp')) return 80;
-  if (name.includes('wall lantern') || name.includes('wall chandelier')) return 75;
-  if (name.includes('string light')) return 65;
-  return 50;
-}
-
 function easeOutCubic(value: number) {
   return 1 - (1 - value) ** 3;
 }
@@ -395,20 +385,6 @@ export function PlacedItems() {
   const finishBoing = useCallback((itemId: string) => {
     boingItemIdsRef.current?.delete(itemId);
   }, []);
-  const activePointLightIds = useMemo(
-    () => new Set(
-      items
-        .filter((item) => catalogById[item.catalogId]?.emitsLight)
-        .sort(
-          (a, b) =>
-            practicalLightPriority(b.catalogId) - practicalLightPriority(a.catalogId),
-        )
-        .slice(0, 2)
-        .map((item) => item.id),
-    ),
-    [items],
-  );
-
   return (
     <group>
       {items.map((storedItem) => {
@@ -444,7 +420,7 @@ export function PlacedItems() {
                     <CatalogItemModel
                       item={catalogItem}
                       placedItemId={item.id}
-                      enablePointLight={activePointLightIds.has(item.id)}
+                      enablePointLight={false}
                       position={[0, 0, 0]}
                       renderOrder={2}
                       rotation={[0, 0, 0]}

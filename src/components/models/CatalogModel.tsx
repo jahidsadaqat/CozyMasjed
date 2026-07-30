@@ -1,14 +1,17 @@
-import { useThree } from '@react-three/fiber/native';
-import { useEffect, useMemo } from 'react';
+import { useFrame, useThree } from '@react-three/fiber/native';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { SkeletonUtils } from 'three-stdlib';
 import type { AssetCatalogItem } from '../../catalog/types';
-import { WALL_ROW_SIZE } from '../../domain/grid';
+import { CELL_SIZE, WALL_ROW_SIZE } from '../../domain/grid';
 import {
   getCozyAmbientKind,
   type CozyAmbientKind,
 } from '../../domain/livingAssets';
 import { weatherVisualProfiles } from '../../domain/weather';
 import { useRoomStore } from '../../store/roomStore';
+import { LightAssetEffects } from '../../three/LightAsset';
+import { getLightingManifestEntry } from '../../three/lightingManifest';
 import { createRadialGradientTexture } from '../BlobShadow';
 import { applyCatalogMaterialPolicy } from './catalogMaterialPolicy';
 import { useModelGLTF } from './useModelGLTF';
@@ -47,6 +50,8 @@ const ignoreRaycast = () => undefined;
 const glowTextureCache = new Map<string, THREE.Texture>();
 const LIGHT_SOURCE_NAME =
   /\b(bulb|flame|wick|glass|glow|emissive|light|candle|filament|led)\b/i;
+const SALAH_ANIMATION_INTERVAL_MS = 1000 / 24;
+const MAX_ANIMATION_FRAME_DELTA = 0.05;
 
 function isLightSourceMaterial(material: THREE.Material, meshName: string) {
   return (
@@ -105,29 +110,13 @@ function SoftGlowDisc({
       scale={scale}
     >
       <circleGeometry args={[1, 36]} />
-      <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} />
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        depthWrite={false}
+        toneMapped={false}
+      />
     </mesh>
-  );
-}
-
-function MinbarAccentGlow({ intensity }: { intensity: number }) {
-  if (intensity <= 0.05) return null;
-  return (
-    <>
-      <SoftGlowDisc
-        color={{ red: 255, green: 196, blue: 102 }}
-        opacity={0.04 + intensity * 0.11}
-        position={[0, 0.035, 0]}
-        scale={[0.72, 0.58, 1]}
-      />
-      <SoftGlowDisc
-        color={{ red: 255, green: 221, blue: 142 }}
-        opacity={0.035 + intensity * 0.095}
-        position={[0.02, 1.02, -0.03]}
-        rotation={[0, 0, 0]}
-        scale={[0.3, 0.3, 1]}
-      />
-    </>
   );
 }
 
@@ -161,38 +150,6 @@ function PracticalSourceGlow({
         transparent
       />
     </sprite>
-  );
-}
-
-function PlantAccentGlow({ item, active }: { item: AssetCatalogItem; active: boolean }) {
-  if (!active) return null;
-  const compact = Math.max(item.footprint.width, item.footprint.depth) <= 0.75;
-  const discScale: [number, number, number] = compact ? [0.34, 0.3, 1] : [0.52, 0.46, 1];
-  return (
-    <>
-      <SoftGlowDisc
-        color={{ red: 234, green: 223, blue: 195 }}
-        opacity={compact ? 0.1 : 0.13}
-        pulse={0.015}
-        position={[0, 0.025, 0]}
-        scale={discScale}
-      />
-    </>
-  );
-}
-
-function QuranAccentGlow({ active }: { active: boolean }) {
-  if (!active) return null;
-  return (
-    <>
-      <SoftGlowDisc
-        color={{ red: 243, green: 225, blue: 191 }}
-        opacity={0.14}
-        pulse={0.015}
-        position={[0, 0.028, 0]}
-        scale={[0.68, 0.56, 1]}
-      />
-    </>
   );
 }
 
@@ -314,42 +271,20 @@ function SoftGroundingGlow({ active, wide = false }: { active: boolean; wide?: b
 function CategoryAccentGlow({
   item,
   ambientKind,
-  modelHeight,
-  mountsToWall,
   ambientActive,
   lightActive,
+  mountsToWall,
 }: {
   item: AssetCatalogItem;
   ambientKind: CozyAmbientKind | null;
-  modelHeight: number;
-  mountsToWall: boolean;
   ambientActive: boolean;
   lightActive: boolean;
+  mountsToWall: boolean;
 }) {
   if (item.category === 'Lights') {
     return lightActive ? <LightAccentGlow item={item} active /> : null;
   }
-  if (item.category === 'Minbar') {
-    return <MinbarAccentGlow intensity={ambientActive ? 0.42 : 0} />;
-  }
-  if (!ambientKind) return null;
-  if (ambientKind === 'plant') {
-    if (mountsToWall) {
-      if (!ambientActive) return null;
-      return (
-        <SoftGlowDisc
-          color={{ red: 240, green: 224, blue: 196 }}
-          opacity={0.12}
-          pulse={0.012}
-          position={[0, modelHeight * 0.52, -0.016]}
-          rotation={[0, 0, 0]}
-          scale={[0.72, 0.82, 1]}
-        />
-      );
-    }
-    return <PlantAccentGlow item={item} active={ambientActive} />;
-  }
-  if (ambientKind === 'quran') return <QuranAccentGlow active={ambientActive} />;
+  if (!ambientKind || mountsToWall) return null;
   if (ambientKind === 'decor') {
     return <DecorAccentGlow item={item} active={ambientActive} />;
   }
@@ -367,9 +302,12 @@ export function CatalogModel({
 }: CatalogModelProps) {
   const invalidate = useThree((state) => state.invalidate);
   const gltf = useModelGLTF(item.asset);
+  const animationMixerRef = useRef<THREE.AnimationMixer | null>(null);
   const weather = useRoomStore((state) => state.weather);
   const weatherProfile = weatherVisualProfiles[weather];
   const lampsActive = weatherProfile.lampsActive;
+  const lightingEntry = getLightingManifestEntry(item.id);
+  const isManifestEmitter = lightingEntry?.emitter === true;
   const hangsFromCeiling =
     item.allowedSurfaces.includes('ceiling') && !item.allowedSurfaces.includes('floor');
   const mountsToWall =
@@ -378,20 +316,27 @@ export function CatalogModel({
     (item.allowedSurfaces.includes('wallL') || item.allowedSurfaces.includes('wallR'));
 
   const normalizedModel = useMemo(() => {
-    const scene = gltf.scene.clone(true);
+    // A regular Object3D clone leaves a SkinnedMesh bound to the source
+    // skeleton. SkeletonUtils gives every placed animated figure an isolated
+    // rig, so multiple figures can animate safely and independently.
+    const scene = item.animationName
+      ? SkeletonUtils.clone(gltf.scene)
+      : gltf.scene.clone(true);
     const materialClones = new Map<string, THREE.Material>();
 
     const cloneMaterial = (source: THREE.Material, meshName: string) => {
-      const sourceIsLight = item.emitsLight && isLightSourceMaterial(source, meshName);
+      const sourceIsLight =
+        isManifestEmitter && isLightSourceMaterial(source, meshName);
       const materialKey = `${source.uuid}:${sourceIsLight ? 'source' : 'housing'}`;
       const existing = materialClones.get(materialKey);
       if (existing) return existing;
       const material = source.clone();
-      applyCatalogMaterialPolicy(material, item.id, meshName);
+      applyCatalogMaterialPolicy(material, item.id, meshName, item.category);
       if (material instanceof THREE.MeshStandardMaterial) {
         material.userData.cozyOriginalEmissive = material.emissive.clone();
         material.userData.cozyOriginalEmissiveMap = material.emissiveMap;
         material.userData.cozyOriginalEmissiveIntensity = material.emissiveIntensity;
+        material.userData.cozyOriginalToneMapped = material.toneMapped;
         material.userData.cozyIsLightSource = sourceIsLight;
       }
       materialClones.set(materialKey, material);
@@ -400,7 +345,10 @@ export function CatalogModel({
 
     scene.traverse((object) => {
       if (object instanceof THREE.Mesh) {
-        object.frustumCulled = true;
+        // Skinned bounds are not recalculated for each prayer pose. Keeping
+        // this single animated mesh out of static frustum culling prevents it
+        // disappearing when the bones move beyond the bind-pose bounds.
+        object.frustumCulled = !item.animationName;
         object.castShadow = false;
         object.receiveShadow = false;
         if (Array.isArray(object.material)) {
@@ -429,17 +377,65 @@ export function CatalogModel({
       height: size.y,
       depth: size.z,
     };
-  }, [gltf.scene, hangsFromCeiling, item.id, mountsToWall]);
+  }, [
+    gltf.scene,
+    hangsFromCeiling,
+    isManifestEmitter,
+    item.animationName,
+    item.category,
+    item.id,
+    mountsToWall,
+  ]);
   const normalizedScene = normalizedModel.scene;
+  const animationClip = useMemo(() => {
+    if (!item.animationName) return null;
+    return (
+      gltf.animations.find((clip) => clip.name === item.animationName) ??
+      gltf.animations[0] ??
+      null
+    );
+  }, [gltf.animations, item.animationName]);
   const resolvedScale = scale ?? 1;
+  const animatedSelectionWidth = Math.max(
+    normalizedModel.width * resolvedScale,
+    item.footprint.width * CELL_SIZE * 0.92,
+    0.48,
+  );
+  const animatedSelectionDepth = Math.max(
+    normalizedModel.depth * resolvedScale,
+    item.footprint.depth * CELL_SIZE * 1.2,
+    0.68,
+  );
+  const animatedSelectionHeight = Math.max(
+    normalizedModel.height * resolvedScale,
+    0.92,
+  );
   const cozyAmbientKind = getCozyAmbientKind(item);
   const cozyAmbientActive = weather === 'night';
+  const receivesNightAmbient =
+    !isManifestEmitter &&
+    item.category !== 'Lights' &&
+    (item.category === 'Minbar' ||
+      item.category === 'Quran' ||
+      item.category === 'Plants' ||
+      mountsToWall);
+  const nightAmbientIntensity =
+    item.category === 'Minbar'
+      ? 0.2
+      : item.category === 'Quran'
+        ? 0.18
+        : item.category === 'Plants'
+          ? 0.17
+          : mountsToWall
+            ? 0.16
+            : 0;
   const reservedWallHeight =
     (item.wallFootprint?.height ?? item.footprint.depth) * WALL_ROW_SIZE;
   const wallVerticalOffset = mountsToWall
     ? Math.max(0, (reservedWallHeight - normalizedModel.height * resolvedScale) / 2)
     : 0;
-  const authoredSourceAnchor = LIGHT_SOURCE_ANCHORS[item.id];
+  const authoredSourceAnchor =
+    lightingEntry?.lightOrigin ?? LIGHT_SOURCE_ANCHORS[item.id];
   const sourcePosition: [number, number, number] = authoredSourceAnchor
     ? [
         authoredSourceAnchor[0] * resolvedScale,
@@ -476,6 +472,39 @@ export function CatalogModel({
   }, [invalidate, item.id, onReady, placedItemId]);
 
   useEffect(() => {
+    if (!animationClip) return;
+
+    const mixer = new THREE.AnimationMixer(normalizedScene);
+    const action = mixer.clipAction(animationClip);
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    action.reset().play();
+    mixer.update(0);
+    animationMixerRef.current = mixer;
+
+    // The room renders on demand to protect iPhone battery and temperature.
+    // Only an actually placed animated figure requests these lightweight
+    // animation frames.
+    const timer = setInterval(invalidate, SALAH_ANIMATION_INTERVAL_MS);
+    invalidate();
+
+    return () => {
+      clearInterval(timer);
+      action.stop();
+      mixer.stopAllAction();
+      mixer.uncacheRoot(normalizedScene);
+      if (animationMixerRef.current === mixer) {
+        animationMixerRef.current = null;
+      }
+    };
+  }, [animationClip, invalidate, normalizedScene]);
+
+  useFrame((_, frameDelta) => {
+    animationMixerRef.current?.update(
+      Math.min(frameDelta, MAX_ANIMATION_FRAME_DELTA),
+    );
+  });
+
+  useEffect(() => {
     normalizedScene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
       const materials = Array.isArray(object.material) ? object.material : [object.material];
@@ -495,10 +524,32 @@ export function CatalogModel({
         material.emissiveIntensity =
           typeof originalEmissiveIntensity === 'number' ? originalEmissiveIntensity : 0;
 
-        if (item.emitsLight && lampsActive && isLightSource) {
-          material.emissive.set('#FFC97A');
+        material.toneMapped =
+          typeof material.userData.cozyOriginalToneMapped === 'boolean'
+            ? material.userData.cozyOriginalToneMapped
+            : true;
+
+        if (cozyAmbientActive && receivesNightAmbient && !isLightSource) {
+          if (material.map) {
+            material.emissive.set('#FFFFFF');
+            material.emissiveMap = material.map;
+          } else {
+            material.emissive.copy(material.color);
+            material.emissiveMap = null;
+          }
+          material.emissiveIntensity = nightAmbientIntensity;
+        }
+
+        if (isManifestEmitter && lampsActive && isLightSource && lightingEntry) {
+          material.emissive.setRGB(
+            lightingEntry.emissiveFactor[0],
+            lightingEntry.emissiveFactor[1],
+            lightingEntry.emissiveFactor[2],
+          );
           material.emissiveIntensity =
-            0.52 + weatherProfile.practicalLightIntensity * 0.32;
+            lightingEntry.emissiveStrength *
+            weatherProfile.practicalLightIntensity;
+          material.toneMapped = false;
         }
         material.needsUpdate = true;
       });
@@ -506,9 +557,13 @@ export function CatalogModel({
     invalidate();
   }, [
     invalidate,
-    item.emitsLight,
+    cozyAmbientActive,
+    isManifestEmitter,
     lampsActive,
+    lightingEntry,
+    nightAmbientIntensity,
     normalizedScene,
+    receivesNightAmbient,
     weatherProfile.practicalLightIntensity,
   ]);
 
@@ -526,48 +581,41 @@ export function CatalogModel({
 
   return (
     <group position={position} rotation={rotation} userData={{ catalogId: item.id, placedItemId }}>
-      {item.emitsLight && lampsActive ? (
-        item.id === 'imported-model-49' ? (
-          <>
-            {[-0.32, 0, 0.32].map((offset) => (
-              <PracticalSourceGlow
-                key={offset}
-                intensity={weatherProfile.practicalLightIntensity}
-                position={[
-                  sourcePosition[0] + normalizedModel.width * resolvedScale * offset,
-                  sourcePosition[1],
-                  sourcePosition[2],
-                ]}
-                radius={sourceGlowRadius * 0.62}
-              />
-            ))}
-          </>
-        ) : (
-          <PracticalSourceGlow
-            intensity={weatherProfile.practicalLightIntensity}
-            position={sourcePosition}
-            radius={sourceGlowRadius}
+      {placedItemId && item.animationName ? (
+        <mesh
+          position={[0, animatedSelectionHeight / 2, 0]}
+          userData={{ placedItemId }}
+        >
+          <boxGeometry
+            args={[
+              animatedSelectionWidth,
+              animatedSelectionHeight,
+              animatedSelectionDepth,
+            ]}
           />
-        )
+          <meshBasicMaterial
+            transparent
+            opacity={0}
+            depthWrite={false}
+            colorWrite={false}
+          />
+        </mesh>
       ) : null}
+      <LightAssetEffects
+        entry={lightingEntry}
+        active={lampsActive}
+        intensity={weatherProfile.practicalLightIntensity}
+      />
       <group position={[0, wallVerticalOffset, 0]} scale={resolvedScale}>
         <CategoryAccentGlow
           item={item}
           ambientKind={cozyAmbientKind}
-          modelHeight={normalizedModel.height}
+          ambientActive={cozyAmbientActive && !isManifestEmitter}
+          lightActive={lampsActive && !isManifestEmitter}
           mountsToWall={mountsToWall}
-          ambientActive={cozyAmbientActive}
-          lightActive={lampsActive}
         />
         <primitive object={normalizedScene} dispose={null} />
       </group>
-      {item.emitsLight && enablePointLight && lampsActive ? (
-        <PracticalPointLight
-          distance={practicalLightDistance}
-          intensity={2.2 * weatherProfile.practicalLightIntensity}
-          position={sourcePosition}
-        />
-      ) : null}
     </group>
   );
 }

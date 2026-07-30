@@ -45,6 +45,7 @@ type CatalogItemBase = {
   placeholderColor: string;
   emitsLight?: boolean;
   rotatable?: boolean;
+  animationName?: string;
   attachmentRole?: AttachmentRole;
   attachmentSlots?: readonly AttachmentSlot[];
 };

@@ -116,6 +116,7 @@ export type RoomState = RoomSnapshot & {
   rotateSelected: (direction: 1 | -1) => boolean;
   duplicateSelected: () => boolean;
   deleteSelected: () => void;
+  deleteAllInActiveBuilding: () => void;
   undo: () => boolean;
   redo: () => boolean;
   hydrateRoom: (snapshot: RoomSnapshot, activeBuildingId?: BuildingId) => void;
@@ -639,6 +640,28 @@ export const useRoomStore = create<RoomState>((set, get) => {
             .filter((item) => item.attachment?.hostItemId === state.selectedItemId)
             .map((item) => item.id),
         ]);
+        const before = readRoomSnapshot(state);
+        deleted = true;
+        return {
+          placedItems: state.placedItems.filter((item) => !removedIds.has(item.id)),
+          ...clearEditorPatch,
+          readyModelItemIds: state.readyModelItemIds.filter((id) => !removedIds.has(id)),
+          past: [...state.past, before].slice(-HISTORY_LIMIT),
+          future: [],
+        };
+      });
+      if (deleted) emitInteractionFeedback('delete');
+    },
+    deleteAllInActiveBuilding: () => {
+      let deleted = false;
+      set((state) => {
+        const removedIds = new Set(
+          state.placedItems
+            .filter((item) => item.buildingId === state.activeBuildingId)
+            .map((item) => item.id),
+        );
+        if (removedIds.size === 0) return state;
+
         const before = readRoomSnapshot(state);
         deleted = true;
         return {

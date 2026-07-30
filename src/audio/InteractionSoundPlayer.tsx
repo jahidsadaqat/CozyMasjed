@@ -233,7 +233,7 @@ export function InteractionSoundPlayer({
         return;
       }
       if (event === 'delete') {
-        replayWhenReady(deletePlayer, 0.38);
+        replayWhenReady(deletePlayer, 0.34);
         return;
       }
       if (event !== 'move') return;

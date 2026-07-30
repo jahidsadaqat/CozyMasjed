@@ -26,8 +26,17 @@ import {
   Wind,
   X,
 } from 'lucide-react-native';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  AccessibilityInfo,
+  FlatList,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { catalog, catalogById } from '../../catalog/catalog';
@@ -77,6 +86,35 @@ const categories: readonly FilterCategory[] = [
   'All',
   ...catalogCategoryOrder.filter((category) => catalog.some((item) => item.category === category)),
 ];
+
+function interleaveCatalogCategories(items: readonly CatalogItem[]) {
+  const categoryBuckets = catalogCategoryOrder
+    .map((category) => items.filter((item) => item.category === category))
+    .filter((bucket) => bucket.length > 0);
+  const showcase: CatalogItem[] = [];
+  const includedIds = new Set<string>();
+  const longestCategory = Math.max(...categoryBuckets.map((bucket) => bucket.length), 0);
+
+  for (let itemIndex = 0; itemIndex < longestCategory; itemIndex += 1) {
+    for (const bucket of categoryBuckets) {
+      const item = bucket[itemIndex];
+      if (!item) continue;
+      showcase.push(item);
+      includedIds.add(item.id);
+    }
+  }
+
+  // Keep future categories visible even if they have not yet been added to
+  // the preferred chip order.
+  for (const item of items) {
+    if (!includedIds.has(item.id)) showcase.push(item);
+  }
+
+  return showcase;
+}
+
+const allCategoryShowcase = interleaveCatalogCategories(catalog);
+
 const styleSections: readonly { id: StyleSection; label: string }[] = [
   { id: 'background', label: 'Background' },
   { id: 'floor', label: 'Floor' },
@@ -302,7 +340,11 @@ function CatalogTray({ onClose }: { onClose: () => void }) {
   const [category, setCategory] = useState<FilterCategory>('All');
   const startPlacing = useRoomStore((state) => state.startPlacing);
   const visibleItems = useMemo(
-    () => (category === 'All' ? catalog : catalog.filter((item) => item.category === category)),
+    () => (
+      category === 'All'
+        ? allCategoryShowcase
+        : catalog.filter((item) => item.category === category)
+    ),
     [category],
   );
 
@@ -618,7 +660,9 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
   const [panel, setPanel] = useState<OpenPanel>(null);
   const [immersive, setImmersive] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [deleteAllArmed, setDeleteAllArmed] = useState(false);
   const [notice, setNotice] = useState<{ title: string; message: string } | null>(null);
+  const deleteAllTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedItemId = useRoomStore((state) => state.selectedItemId);
   const placingCatalogId = useRoomStore((state) => state.placingCatalogId);
   const hasPlacementPreview = useRoomStore((state) => Boolean(state.placementPreview));
@@ -638,6 +682,7 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
   const redo = useRoomStore((state) => state.redo);
   const cancelDrag = useRoomStore((state) => state.cancelDrag);
   const setCaptureClean = useRoomStore((state) => state.setCaptureClean);
+  const deleteAllInActiveBuilding = useRoomStore((state) => state.deleteAllInActiveBuilding);
   const activePlacedItems = useMemo(
     () => placedItems.filter((item) => item.buildingId === activeBuildingId),
     [activeBuildingId, placedItems],
@@ -646,7 +691,34 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
   const backgroundReady = readyBackgroundId === backgroundId;
   const canGoBack = Boolean(panel || placingCatalogId || selectedItemId);
 
+  useEffect(() => {
+    setDeleteAllArmed(false);
+    if (deleteAllTimerRef.current) {
+      clearTimeout(deleteAllTimerRef.current);
+      deleteAllTimerRef.current = null;
+    }
+    return () => {
+      if (deleteAllTimerRef.current) clearTimeout(deleteAllTimerRef.current);
+    };
+  }, [activeBuildingId]);
+
   const closePanel = () => setPanel(null);
+  const handleDeleteAll = () => {
+    if (activePlacedItems.length === 0) return;
+    if (!deleteAllArmed) {
+      setDeleteAllArmed(true);
+      if (deleteAllTimerRef.current) clearTimeout(deleteAllTimerRef.current);
+      deleteAllTimerRef.current = setTimeout(() => {
+        setDeleteAllArmed(false);
+        deleteAllTimerRef.current = null;
+      }, 3_000);
+      return;
+    }
+    if (deleteAllTimerRef.current) clearTimeout(deleteAllTimerRef.current);
+    deleteAllTimerRef.current = null;
+    setDeleteAllArmed(false);
+    deleteAllInActiveBuilding();
+  };
   const handleBack = () => {
     if (panel) return closePanel();
     if (placingCatalogId) return cancelPlacement();
@@ -773,6 +845,29 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
             />
           </View>
         </View>
+
+        {__DEV__ && !panel && !placingCatalogId && !draggingItemId ? (
+          <Pressable
+            accessibilityHint="Development tool. Press twice to remove every asset from the current room"
+            accessibilityLabel={`Delete all ${activePlacedItems.length} assets in this room`}
+            accessibilityRole="button"
+            disabled={activePlacedItems.length === 0}
+            onPress={handleDeleteAll}
+            style={({ pressed }) => [
+              styles.devDeleteAllButton,
+              deleteAllArmed && styles.devDeleteAllButtonArmed,
+              activePlacedItems.length === 0 && styles.disabled,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Trash2 color={deleteAllArmed ? '#FFF7F1' : '#A84E42'} size={18} />
+            <View style={[styles.devDeleteAllBadge, deleteAllArmed && styles.devDeleteAllBadgeArmed]}>
+              <Text style={[styles.devDeleteAllBadgeText, deleteAllArmed && styles.devDeleteAllBadgeTextArmed]}>
+                {deleteAllArmed ? '!' : activePlacedItems.length}
+              </Text>
+            </View>
+          </Pressable>
+        ) : null}
 
         {panel === 'weather' ? (
           <WeatherPopover
@@ -991,6 +1086,50 @@ const styles = StyleSheet.create({
     color: palette.inkMuted,
     fontFamily: 'Nunito_700Bold',
     fontSize: 11,
+  },
+  devDeleteAllButton: {
+    position: 'absolute',
+    top: 58,
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 244, 239, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 78, 66, 0.28)',
+    ...softShadow,
+  },
+  devDeleteAllBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 19,
+    height: 19,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#A84E42',
+    borderWidth: 2,
+    borderColor: '#FFF7F1',
+  },
+  devDeleteAllBadgeText: {
+    color: '#FFF7F1',
+    fontFamily: 'Nunito_800ExtraBold',
+    fontSize: 10,
+  },
+  devDeleteAllButtonArmed: {
+    backgroundColor: '#A84E42',
+    borderColor: '#A84E42',
+  },
+  devDeleteAllBadgeArmed: {
+    backgroundColor: '#FFF7F1',
+    borderColor: '#A84E42',
+  },
+  devDeleteAllBadgeTextArmed: {
+    color: '#A84E42',
   },
   immersiveRestore: {
     alignSelf: 'flex-end',

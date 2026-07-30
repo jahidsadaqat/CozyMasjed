@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "lighting-manifest.schema.json",
+  "title": "Cozy Masjid lighting manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "activationWeather", "entries"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "activationWeather": {
+      "type": "array",
+      "items": { "enum": ["sunny", "cloudy", "rain", "wind", "night"] },
+      "uniqueItems": true
+    },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "vec3": {
+      "type": "array",
+      "prefixItems": [{ "type": "number" }, { "type": "number" }, { "type": "number" }],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "glow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "radius", "color", "opacity"],
+      "properties": {
+        "type": { "enum": ["omni", "floor_pool", "wall_wash"] },
+        "radius": { "type": "number", "exclusiveMinimum": 0 },
+        "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "flicker": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["amplitude", "hz", "noise"],
+      "properties": {
+        "amplitude": { "type": "number", "minimum": 0, "maximum": 0.25 },
+        "hz": { "type": "number", "exclusiveMinimum": 0, "maximum": 12 },
+        "noise": { "enum": ["perlin", "sine"] },
+        "perBulbOffset": { "type": "boolean" }
+      }
+    },
+    "strip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bulbCount", "spanM", "sagM"],
+      "properties": {
+        "bulbCount": { "type": "integer", "minimum": 2, "maximum": 32 },
+        "spanM": { "type": "number", "exclusiveMinimum": 0 },
+        "sagM": { "type": "number", "minimum": 0 }
+      }
+    },
+    "smoke": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["origin", "heightM", "radiusM"],
+      "properties": {
+        "origin": { "$ref": "#/$defs/vec3" },
+        "heightM": { "type": "number", "exclusiveMinimum": 0 },
+        "radiusM": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "placement",
+        "targetHeightM",
+        "emitter",
+        "emissiveFactor",
+        "emissiveStrength",
+        "lightOrigin",
+        "glow",
+        "realLightPriority",
+        "flicker",
+        "smoke"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "placement": { "enum": ["floor", "table", "wall", "ceiling", "hanging"] },
+        "targetHeightM": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "emitter": { "type": "boolean" },
+        "emissiveFactor": { "$ref": "#/$defs/vec3" },
+        "emissiveStrength": { "type": "number", "minimum": 0 },
+        "lightOrigin": {
+          "anyOf": [{ "$ref": "#/$defs/vec3" }, { "type": "null" }]
+        },
+        "glow": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/glow" }
+        },
+        "realLightPriority": { "type": ["integer", "null"], "minimum": 1 },
+        "flicker": { "$ref": "#/$defs/flicker" },
+        "smoke": { "$ref": "#/$defs/smoke" },
+        "strip": { "$ref": "#/$defs/strip" }
+      }
+    }
+  }
+}

@@ -128,4 +128,5 @@ export const catalogThumbnails: Readonly<Record<string, number>> = {
   'imported-model-107': require('../../assets/catalog-thumbnails/seating/majlis-cushions/majlis-cushion-variant-08-scalloped-flower.png'),
   'imported-model-108': require('../../assets/catalog-thumbnails/seating/majlis-cushions/majlis-cushion-variant-09-teal-hexagonal-quilt.png'),
   'imported-model-109': require('../../assets/catalog-thumbnails/seating/majlis-cushions/majlis-cushion-variant-10-minimal-sand.png'),
+  'imported-model-110': require('../../assets/catalog-thumbnails/characters/salah-animated.png'),
 };

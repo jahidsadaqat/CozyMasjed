@@ -43,6 +43,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "audio:check-native": "node scripts/check-native-audio.mjs",
+    "lighting:generate": "node scripts/generate-lighting-assets.mjs",
+    "lighting:validate": "node scripts/validate-lighting-manifest.mjs",
     "ios": "expo start --ios",
     "models:check-native": "node scripts/check-native-models.mjs",
     "web": "expo start --web",

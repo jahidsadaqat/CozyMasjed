@@ -34,11 +34,15 @@ function CatalogItemModelImpl({
 
   useLayoutEffect(() => {
     if (!materialPolicyRef.current) return;
-    applyCatalogMaterialPolicyToObject(materialPolicyRef.current, item.id);
+    applyCatalogMaterialPolicyToObject(
+      materialPolicyRef.current,
+      item.id,
+      item.category,
+    );
     materialPolicyRef.current.traverse((object) => {
       if (object instanceof THREE.Mesh) object.renderOrder = renderOrder;
     });
-  }, [item.id, renderOrder]);
+  }, [item.category, item.id, renderOrder]);
 
   return (
     <group ref={materialPolicyRef}>

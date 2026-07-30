@@ -121,4 +121,5 @@ export const importedModelAssets: readonly ImportedModelAsset[] = [
   { id: 'imported-model-107', name: 'Scalloped Floor Cushion', asset: require('../../assets/models/optimized/seating/majlis-cushions/majlis-cushion-variant-08-scalloped-flower.glb') },
   { id: 'imported-model-108', name: 'Teal Hexagonal Pouf', asset: require('../../assets/models/optimized/seating/majlis-cushions/majlis-cushion-variant-09-teal-hexagonal-quilt.glb') },
   { id: 'imported-model-109', name: 'Sand Majlis Cushion', asset: require('../../assets/models/optimized/seating/majlis-cushions/majlis-cushion-variant-10-minimal-sand.glb') },
+  { id: 'imported-model-110', name: 'Animated Salah Figure', asset: require('../../assets/models/optimized/characters/salah-animated.glb') },
 ];

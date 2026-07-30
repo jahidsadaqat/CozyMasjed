@@ -5,6 +5,7 @@ import { GodRay } from '../GodRay';
 import { weatherVisualProfiles, type WeatherMode } from '../../domain/weather';
 import { useRoomStore } from '../../store/roomStore';
 import { ModelValidationScene } from '../models/ModelValidationScene';
+import { RoomLighting } from '../../three/RoomLighting';
 import { CinematicRoomAccents } from './CinematicRoomAccents';
 import { PlacedItems } from './PlacedItems';
 import { ModelRoomShell } from './ModelRoomShell';
@@ -44,22 +45,7 @@ export function RoomScene() {
   return (
     <>
       <WeatherRendererSettings weather={weather} />
-      <ambientLight intensity={profile.ambientIntensity} color={profile.ambientColor} />
-      <hemisphereLight
-        intensity={profile.hemisphereIntensity}
-        color={profile.hemisphereSkyColor}
-        groundColor={profile.hemisphereGroundColor}
-      />
-      <directionalLight
-        position={[4.5, 7.5, 5.5]}
-        intensity={profile.directionalIntensity}
-        color={profile.directionalColor}
-      />
-      <directionalLight
-        position={[2.5, 4.5, 4]}
-        intensity={profile.fillIntensity}
-        color={profile.fillColor}
-      />
+      <RoomLighting />
       <Suspense fallback={null}>
         <ModelRoomShell buildingId={activeBuildingId} onReady={handleShellReady} />
       </Suspense>

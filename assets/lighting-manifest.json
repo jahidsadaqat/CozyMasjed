@@ -1,0 +1,2098 @@
+{
+  "$schema": "./lighting-manifest.schema.json",
+  "version": 1,
+  "activationWeather": [
+    "rain",
+    "night"
+  ],
+  "entries": [
+    {
+      "id": "imported-model-01",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-02",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-03",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-04",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-06",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-07",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-08",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-09",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-10",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-11",
+      "placement": "wall",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-12",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-13",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-14",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-15",
+      "placement": "wall",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-16",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-17",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-18",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-19",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-20",
+      "placement": "wall",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-21",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-22",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-23",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-24",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-25",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-26",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-27",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-28",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-37",
+      "placement": "floor",
+      "targetHeightM": 0.46,
+      "emitter": true,
+      "emissiveFactor": [
+        1,
+        0.45,
+        0.16
+      ],
+      "emissiveStrength": 1.7,
+      "lightOrigin": [
+        0,
+        0.37,
+        0
+      ],
+      "glow": [
+        {
+          "type": "omni",
+          "radius": 0.09,
+          "color": "#FF7A2E",
+          "opacity": 0.36
+        }
+      ],
+      "realLightPriority": null,
+      "flicker": {
+        "amplitude": 0.08,
+        "hz": 1.2,
+        "noise": "sine"
+      },
+      "smoke": {
+        "origin": [
+          0,
+          0.37,
+          0
+        ],
+        "heightM": 0.62,
+        "radiusM": 0.075
+      }
+    },
+    {
+      "id": "imported-model-38",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-39",
+      "placement": "wall",
+      "targetHeightM": 0.51,
+      "emitter": true,
+      "emissiveFactor": [
+        1,
+        0.78,
+        0.52
+      ],
+      "emissiveStrength": 1.45,
+      "lightOrigin": [
+        0,
+        0.22,
+        0.14
+      ],
+      "glow": [
+        {
+          "type": "omni",
+          "radius": 0.22,
+          "color": "#FFC98A",
+          "opacity": 0.34
+        },
+        {
+          "type": "wall_wash",
+          "radius": 0.85,
+          "color": "#FFC98A",
+          "opacity": 0.15
+        }
+      ],
+      "realLightPriority": 5,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-40",
+      "placement": "floor",
+      "targetHeightM": 0.8,
+      "emitter": true,
+      "emissiveFactor": [
+        1,
+        0.86,
+        0.66
+      ],
+      "emissiveStrength": 1.35,
+      "lightOrigin": [
+        0,
+        0.62,
+        0
+      ],
+      "glow": [
+        {
+          "type": "omni",
+          "radius": 0.3,
+          "color": "#FFD9AE",
+          "opacity": 0.32
+        },
+        {
+          "type": "floor_pool",
+          "radius": 1.25,
+          "color": "#FFD9AE",
+          "opacity": 0.14
+        }
+      ],
+      "realLightPriority": 3,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-41",
+      "placement": "floor",
+      "targetHeightM": 0.53,
+      "emitter": true,
+      "emissiveFactor": [
+        1,
+        0.45,
+        0.16
+      ],
+      "emissiveStrength": 1.7,
+      "lightOrigin": [
+        0,
+        0.4,
+        0
+      ],
+      "glow": [
+        {
+          "type": "omni",
+          "radius": 0.09,
+          "color": "#FF7A2E",
+          "opacity": 0.36
+        }
+      ],
+      "realLightPriority": null,
+      "flicker": {
+        "amplitude": 0.08,
+        "hz": 1.2,
+        "noise": "sine"
+      },
+      "smoke": {
+        "origin": [
+          0,
+          0.4,
+          0
+        ],
+        "heightM": 0.66,
+        "radiusM": 0.08
+      }
+    },
+    {
+      "id": "imported-model-42",
+      "placement": "floor",
+      "targetHeightM": 0.3,
+      "emitter": true,
+      "emissiveFactor": [
+        1,
+        0.66,
+        0.3
+      ],
+      "emissiveStrength": 1.9,
+      "lightOrigin": [
+        -0.01,
+        0.26,
+        -0.02
+      ],
+      "glow": [
+        {
+          "type": "omni",
+          "radius": 0.12,
+          "color": "#FFA544",
+          "opacity": 0.38
+        }
+      ],
+      "realLightPriority": null,
+      "flicker": {
+        "amplitude": 0.12,
+        "hz": 6.5,
+        "noise": "perlin"
+      },
+      "smoke": null
+    },
+    {
+      "id": "imported-model-43",
+      "placement": "wall",
+      "targetHeightM": 0.87,
+      "emitter": true,
+      "emissiveFactor": [
+        1,
+        0.84,
+        0.6
+      ],
+      "emissiveStrength": 1.7,
+      "lightOrigin": [
+        0,
+        0.5,
+        0.23
+      ],
+      "glow": [
+        {
+          "type": "omni",
+          "radius": 0.42,
+          "color": "#FFD79A",
+          "opacity": 0.36
+        },
+        {
+          "type": "wall_wash",
+          "radius": 1.15,
+          "color": "#FFD79A",
+          "opacity": 0.16
+        }
+      ],
+      "realLightPriority": 1,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-44",
+      "placement": "wall",
+      "targetHeightM": 0.8,
+      "emitter": true,
+      "emissiveFactor": [
+        1,
+        0.79,
+        0.54
+      ],
+      "emissiveStrength": 1.55,
+      "lightOrigin": [
+        0,
+        0.13,
+        0.25
+      ],
+      "glow": [
+        {
+          "type": "omni",
+          "radius": 0.3,
+          "color": "#FFC98A",
+          "opacity": 0.34
+        },
+        {
+          "type": "wall_wash",
+          "radius": 0.9,
+          "color": "#FFC98A",
+          "opacity": 0.15
+        }
+      ],
+      "realLightPriority": 2,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-45",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-46",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-47",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-48",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-49",
+      "placement": "wall",
+      "targetHeightM": 0.43,
+      "emitter": true,
+      "emissiveFactor": [
+        1,
+        0.74,
+        0.44
+      ],
+      "emissiveStrength": 1.45,
+      "lightOrigin": [
+        0,
+        0.08,
+        0.06
+      ],
+      "glow": [
+        {
+          "type": "omni",
+          "radius": 0.055,
+          "color": "#FFC070",
+          "opacity": 0.32
+        }
+      ],
+      "realLightPriority": null,
+      "flicker": {
+        "amplitude": 0.04,
+        "hz": 0.8,
+        "noise": "perlin",
+        "perBulbOffset": true
+      },
+      "smoke": null,
+      "strip": {
+        "bulbCount": 6,
+        "spanM": 0.78,
+        "sagM": 0.08
+      }
+    },
+    {
+      "id": "imported-model-50",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-51",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-52",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-53",
+      "placement": "wall",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-54",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-55",
+      "placement": "wall",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-56",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-57",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-58",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-59",
+      "placement": "wall",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-60",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-61",
+      "placement": "wall",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-62",
+      "placement": "wall",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-63",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-64",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-65",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-66",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-67",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-68",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-69",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-70",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-71",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-72",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-73",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-74",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-75",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-76",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-77",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-78",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-79",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-80",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-81",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-82",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-83",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-84",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-85",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-86",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-87",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-88",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-89",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-90",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-91",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-92",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-93",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-94",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-95",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-96",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-97",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-98",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-99",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-100",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-101",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-102",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-103",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-104",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-105",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-106",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-107",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-108",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-109",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "imported-model-110",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "masjid-model",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "fanous-lantern",
+      "placement": "floor",
+      "targetHeightM": 0.87,
+      "emitter": true,
+      "emissiveFactor": [
+        1,
+        0.72,
+        0.4
+      ],
+      "emissiveStrength": 1.55,
+      "lightOrigin": [
+        0,
+        0.46,
+        0
+      ],
+      "glow": [
+        {
+          "type": "omni",
+          "radius": 0.28,
+          "color": "#FFB25C",
+          "opacity": 0.34
+        },
+        {
+          "type": "floor_pool",
+          "radius": 1,
+          "color": "#FFB25C",
+          "opacity": 0.14
+        }
+      ],
+      "realLightPriority": 4,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "tasbih",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "rehal-quran",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "minbar",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "floor-cushion",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "curtains",
+      "placement": "wall",
+      "targetHeightM": 0.8,
+      "emitter": true,
+      "emissiveFactor": [
+        1,
+        0.81,
+        0.62
+      ],
+      "emissiveStrength": 1.4,
+      "lightOrigin": [
+        0,
+        0.4,
+        0.14
+      ],
+      "glow": [
+        {
+          "type": "omni",
+          "radius": 0.22,
+          "color": "#FFCF9E",
+          "opacity": 0.31
+        },
+        {
+          "type": "wall_wash",
+          "radius": 0.8,
+          "color": "#FFCF9E",
+          "opacity": 0.14
+        }
+      ],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "minaret",
+      "placement": "floor",
+      "targetHeightM": 0.8,
+      "emitter": true,
+      "emissiveFactor": [
+        1,
+        0.81,
+        0.62
+      ],
+      "emissiveStrength": 1.45,
+      "lightOrigin": [
+        0,
+        0.4,
+        0
+      ],
+      "glow": [
+        {
+          "type": "omni",
+          "radius": 0.25,
+          "color": "#FFCF9E",
+          "opacity": 0.32
+        },
+        {
+          "type": "floor_pool",
+          "radius": 0.95,
+          "color": "#FFCF9E",
+          "opacity": 0.13
+        }
+      ],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "wall-art",
+      "placement": "wall",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    },
+    {
+      "id": "mini-masjid",
+      "placement": "floor",
+      "targetHeightM": null,
+      "emitter": false,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "emissiveStrength": 0,
+      "lightOrigin": null,
+      "glow": [],
+      "realLightPriority": null,
+      "flicker": null,
+      "smoke": null
+    }
+  ]
+}
