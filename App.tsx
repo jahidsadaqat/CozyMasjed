@@ -1,67 +1,112 @@
-import { catalog } from '../catalog/catalog';
-import type { CatalogCategory } from '../catalog/types';
-import type { BuildingId } from '../domain/buildings';
-import type { BackgroundId } from '../theme/backgrounds';
+import { Nunito_700Bold } from '@expo-google-fonts/nunito/700Bold';
+import { Nunito_800ExtraBold } from '@expo-google-fonts/nunito/800ExtraBold';
+import { useFonts } from 'expo-font';
+import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
+import { ImageBackground, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { DeferredInteractionSoundPlayer } from './src/audio/DeferredInteractionSoundPlayer';
+import { RoomCanvas } from './src/components/room/RoomCanvas';
+import { AppErrorBoundary } from './src/components/ui/AppErrorBoundary';
+import { EditorOverlay } from './src/components/ui/EditorOverlay';
+import { WelcomeGuide } from './src/components/ui/WelcomeGuide';
+import WeatherOverlay from './src/components/weather/WeatherOverlay';
+import { InteractionHapticPlayer } from './src/feedback/InteractionHapticPlayer';
+import { useRoomPersistence } from './src/store/roomPersistence';
+import { useRoomStore } from './src/store/roomStore';
+import { getBackgroundOption } from './src/theme/backgrounds';
+import { palette } from './src/theme/palette';
 
-/**
- * What Premium unlocks.
- *
- * ── Catalog rule ────────────────────────────────────────────────────────────
- * The FIRST item in every category is free. Everything after it is Premium.
- * The rule is derived from the catalog order itself, so adding a new asset to
- * `src/catalog/` needs no change here: drop it in the array and it is premium
- * unless it happens to be the first of a brand new category.
- *
- * To change which item is the free one in a category, move it to the top of
- * that category's block in `catalog.ts`, or add its id to
- * `ALWAYS_FREE_CATALOG_ITEM_IDS` below.
- */
+function AppContent() {
+  const [fontsLoaded] = useFonts({ Nunito_700Bold, Nunito_800ExtraBold });
+  const [ambienceOn, setAmbienceOn] = useState(false);
+  const isHydrated = useRoomStore((state) => state.isHydrated);
+  const backgroundId = useRoomStore((state) => state.backgroundId);
+  const roomWeather = useRoomStore((state) => state.weather);
+  const markBackgroundReady = useRoomStore((state) => state.markBackgroundReady);
+  const backgroundOption = getBackgroundOption(backgroundId);
+  const backgroundSource = backgroundOption.source;
+  const weather = roomWeather === 'rainy' ? 'rain' : roomWeather === 'windy' ? 'wind' : roomWeather;
+  useRoomPersistence();
 
-/** Escape hatch — ids listed here stay free regardless of catalog position. */
-export const ALWAYS_FREE_CATALOG_ITEM_IDS: readonly string[] = [];
-
-const catalogItemIds = new Set<string>();
-const freeCatalogItemIds = new Set<string>(ALWAYS_FREE_CATALOG_ITEM_IDS);
-const seenCategories = new Set<CatalogCategory>();
-
-for (const item of catalog) {
-  catalogItemIds.add(item.id);
-  if (!seenCategories.has(item.category)) {
-    seenCategories.add(item.category);
-    freeCatalogItemIds.add(item.id);
+  if (!fontsLoaded || !isHydrated) {
+    return (
+      <ImageBackground
+        resizeMode="cover"
+        source={backgroundSource}
+        style={[styles.root, { backgroundColor: palette.cream }]}
+      />
+    );
   }
+
+  return (
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <ImageBackground
+          onLoadEnd={() => markBackgroundReady(backgroundId)}
+          resizeMode="cover"
+          source={backgroundSource}
+          style={[styles.root, { backgroundColor: backgroundOption.fallbackColor }]}
+        >
+          <DeferredInteractionSoundPlayer enabled />
+          <InteractionHapticPlayer />
+          <WeatherOverlay
+            dom={{
+              automaticallyAdjustContentInsets: false,
+              automaticallyAdjustsScrollIndicatorInsets: false,
+              bounces: false,
+              containerStyle: styles.weatherOverlay,
+              contentInsetAdjustmentBehavior: 'never',
+              mediaPlaybackRequiresUserAction: false,
+              pointerEvents: 'none',
+              scrollEnabled: false,
+              showsHorizontalScrollIndicator: false,
+              showsVerticalScrollIndicator: false,
+              style: styles.weatherOverlay,
+            }}
+            mode={weather}
+            soundOn={ambienceOn}
+          />
+          <View style={styles.roomLayer}>
+            <RoomCanvas />
+          </View>
+          <EditorOverlay
+            soundOn={ambienceOn}
+            onToggleSound={() => setAmbienceOn((current) => !current)}
+          />
+          <WelcomeGuide />
+          <StatusBar style="dark" />
+        </ImageBackground>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
 }
 
-/** Every id a free user can place. Exposed for tests and debugging. */
-export const FREE_CATALOG_ITEM_IDS: ReadonlySet<string> = freeCatalogItemIds;
-
-/**
- * Retired ids and anything not in the public catalog return false: a room saved
- * before Premium existed must keep rendering every item it already contains.
- */
-export function isPremiumCatalogItem(id: string) {
-  if (!catalogItemIds.has(id)) return false;
-  return !freeCatalogItemIds.has(id);
+export default function App() {
+  return (
+    <AppErrorBoundary>
+      <AppContent />
+    </AppErrorBoundary>
+  );
 }
 
-/**
- * Rooms and backgrounds are still entirely free. Add ids here when you ship a
- * new premium-only room — never move existing free content behind the paywall,
- * it breaks saved rooms and reads as a bait-and-switch in App Review.
- */
-export const PREMIUM_BUILDING_IDS: readonly BuildingId[] = [];
-
-export const PREMIUM_BACKGROUND_IDS: readonly BackgroundId[] = [];
-
-export function isPremiumBuilding(id: BuildingId) {
-  return PREMIUM_BUILDING_IDS.includes(id);
-}
-
-export function isPremiumBackground(id: BackgroundId) {
-  return PREMIUM_BACKGROUND_IDS.includes(id);
-}
-
-/** True when the content exists but this user cannot place it yet. */
-export function isContentLocked(isPremiumContent: boolean, hasPremium: boolean) {
-  return isPremiumContent && !hasPremium;
-}
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  weatherOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 1,
+    backgroundColor: 'transparent',
+    pointerEvents: 'none',
+  },
+  roomLayer: {
+    flex: 1,
+    zIndex: 2,
+  },
+});
