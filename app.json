@@ -30,6 +30,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-iap",
       "expo-asset",
       "expo-font",
       "expo-sharing",

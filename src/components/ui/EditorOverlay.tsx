@@ -6,9 +6,11 @@ import {
   Cloud,
   CloudRain,
   CopyPlus,
+  Crown,
   Frame,
   Lamp,
   Landmark,
+  Lock,
   Maximize2,
   Minimize2,
   MoonStar,
@@ -16,6 +18,7 @@ import {
   Plus,
   RotateCcw,
   RotateCw,
+  Settings,
   Sparkles,
   Sun,
   Trash2,
@@ -49,7 +52,10 @@ import {
   type InteractionFeedbackEvent,
   type InteractionFeedbackOptions,
 } from '../../feedback/interactionFeedbackEvents';
+import { isContentLocked, isPremiumCatalogItem } from '../../premium/premiumContent';
+import { usePremium } from '../../premium/PremiumProvider';
 import { captureSaveAndShareRoom } from '../../services/roomSnapshot';
+import { useOverlayStore } from '../../store/overlayStore';
 import { useRoomStore } from '../../store/roomStore';
 import { backgroundOptions, type BackgroundId } from '../../theme/backgrounds';
 import { palette } from '../../theme/palette';
@@ -339,6 +345,8 @@ function CategoryGlyph({ item }: { item: CatalogItem }) {
 function CatalogTray({ onClose }: { onClose: () => void }) {
   const [category, setCategory] = useState<FilterCategory>('All');
   const startPlacing = useRoomStore((state) => state.startPlacing);
+  const isPremium = usePremium().isPremium;
+  const openPaywall = useOverlayStore((state) => state.openPaywall);
   const visibleItems = useMemo(
     () => (
       category === 'All'
@@ -388,30 +396,57 @@ function CatalogTray({ onClose }: { onClose: () => void }) {
         keyExtractor={(item) => item.id}
         maxToRenderPerBatch={6}
         removeClippedSubviews
-        renderItem={({ item }) => (
-          <Pressable
-            accessibilityLabel={`Add ${item.name}`}
-            accessibilityRole="button"
-            onPress={() => {
-              tapFeedback('assetSelect');
-              startPlacing(item.id);
-              onClose();
-              AccessibilityInfo.announceForAccessibility(`${item.name} ready to move. Tap or drag to place it.`);
-            }}
-            style={({ pressed }) => [styles.itemCard, pressed && styles.itemCardPressed]}
-          >
-            {catalogThumbnails[item.id] ? (
-              <Image resizeMode="contain" source={catalogThumbnails[item.id]} style={styles.itemThumbnail} />
-            ) : (
-              <View style={[styles.itemPlaceholder, { backgroundColor: item.placeholderColor }]}>
-                <CategoryGlyph item={item} />
-              </View>
-            )}
-            <Text numberOfLines={2} style={styles.itemName}>
-              {item.name}
-            </Text>
-          </Pressable>
-        )}
+        renderItem={({ item }) => {
+          const locked = isContentLocked(isPremiumCatalogItem(item.id), isPremium);
+
+          return (
+            <Pressable
+              accessibilityHint={
+                locked ? 'Opens the Premium plans' : 'Places this in your room'
+              }
+              accessibilityLabel={locked ? `${item.name}, Premium` : `Add ${item.name}`}
+              accessibilityRole="button"
+              onPress={() => {
+                if (locked) {
+                  tapFeedback('ui');
+                  openPaywall('locked-content');
+                  return;
+                }
+                tapFeedback('assetSelect');
+                startPlacing(item.id);
+                onClose();
+                AccessibilityInfo.announceForAccessibility(`${item.name} ready to move. Tap or drag to place it.`);
+              }}
+              style={({ pressed }) => [styles.itemCard, pressed && styles.itemCardPressed]}
+            >
+              {catalogThumbnails[item.id] ? (
+                <Image
+                  resizeMode="contain"
+                  source={catalogThumbnails[item.id]}
+                  style={[styles.itemThumbnail, locked && styles.itemArtLocked]}
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.itemPlaceholder,
+                    { backgroundColor: item.placeholderColor },
+                    locked && styles.itemArtLocked,
+                  ]}
+                >
+                  <CategoryGlyph item={item} />
+                </View>
+              )}
+              <Text numberOfLines={2} style={[styles.itemName, locked && styles.itemNameLocked]}>
+                {item.name}
+              </Text>
+              {locked ? (
+                <View pointerEvents="none" style={styles.itemLockBadge}>
+                  <Lock color={palette.paper} size={11} strokeWidth={2.9} />
+                </View>
+              ) : null}
+            </Pressable>
+          );
+        }}
         showsHorizontalScrollIndicator={false}
         style={styles.itemScroller}
         windowSize={3}
@@ -594,6 +629,58 @@ function StylePanel() {
         ) : null}
       </Animated.View>
     </Animated.View>
+  );
+}
+
+/**
+ * Premium and Settings live together in a quiet rail under the Back button, so
+ * the room itself and the existing controls are untouched.
+ */
+function ChromeRail() {
+  const isPremium = usePremium().isPremium;
+  const openPaywall = useOverlayStore((state) => state.openPaywall);
+  const openSettings = useOverlayStore((state) => state.openSettings);
+
+  return (
+    <View style={styles.chromeRail}>
+      <Pressable
+        accessibilityHint={
+          isPremium ? 'Opens your Premium details' : 'Opens the Cozy Masjid Premium plans'
+        }
+        accessibilityLabel={isPremium ? 'Your Premium' : 'Get Premium'}
+        accessibilityRole="button"
+        onPress={() => {
+          tapFeedback();
+          openPaywall('chrome');
+        }}
+        style={({ pressed }) => [
+          styles.roundButton,
+          styles.premiumButton,
+          isPremium && styles.premiumButtonOwned,
+          pressed && styles.buttonPressed,
+        ]}
+      >
+        <Crown
+          color={isPremium ? palette.paper : palette.terracottaDeep}
+          fill={isPremium ? palette.paper : 'transparent'}
+          size={21}
+          strokeWidth={2.2}
+        />
+      </Pressable>
+
+      <Pressable
+        accessibilityHint="Opens settings, legal links and Restore Purchases"
+        accessibilityLabel="Settings"
+        accessibilityRole="button"
+        onPress={() => {
+          tapFeedback();
+          openSettings();
+        }}
+        style={({ pressed }) => [styles.roundButton, pressed && styles.buttonPressed]}
+      >
+        <Settings color={palette.ink} size={20} strokeWidth={2.2} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -846,6 +933,8 @@ export function EditorOverlay({ soundOn, onToggleSound }: { soundOn: boolean; on
           </View>
         </View>
 
+        {!panel && !placingCatalogId && !draggingItemId && !selectedItemId ? <ChromeRail /> : null}
+
         {__DEV__ && !panel && !placingCatalogId && !draggingItemId ? (
           <Pressable
             accessibilityHint="Development tool. Press twice to remove every asset from the current room"
@@ -1089,7 +1178,7 @@ const styles = StyleSheet.create({
   },
   devDeleteAllButton: {
     position: 'absolute',
-    top: 58,
+    top: 162,
     left: 16,
     width: 44,
     height: 44,
@@ -1130,6 +1219,21 @@ const styles = StyleSheet.create({
   },
   devDeleteAllBadgeTextArmed: {
     color: '#A84E42',
+  },
+  chromeRail: {
+    position: 'absolute',
+    top: 58,
+    left: 16,
+    gap: 8,
+  },
+  premiumButton: {
+    backgroundColor: '#FBEFD8',
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 169, 70, 0.55)',
+  },
+  premiumButtonOwned: {
+    backgroundColor: palette.gold,
+    borderColor: palette.gold,
   },
   immersiveRestore: {
     alignSelf: 'flex-end',
@@ -1242,6 +1346,25 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 251, 244, 0.98)',
     borderWidth: 1,
     borderColor: 'rgba(78,59,49,0.07)',
+  },
+  itemArtLocked: {
+    opacity: 0.42,
+  },
+  itemNameLocked: {
+    opacity: 0.62,
+  },
+  itemLockBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 21,
+    height: 21,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.gold,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 251, 244, 0.92)',
   },
   itemCardPressed: {
     transform: [{ scale: 0.96 }],

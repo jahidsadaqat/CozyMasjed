@@ -8,11 +8,13 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DeferredInteractionSoundPlayer } from './src/audio/DeferredInteractionSoundPlayer';
 import { RoomCanvas } from './src/components/room/RoomCanvas';
+import { AppSheets } from './src/components/ui/AppSheets';
 import { AppErrorBoundary } from './src/components/ui/AppErrorBoundary';
 import { EditorOverlay } from './src/components/ui/EditorOverlay';
 import { WelcomeGuide } from './src/components/ui/WelcomeGuide';
 import WeatherOverlay from './src/components/weather/WeatherOverlay';
 import { InteractionHapticPlayer } from './src/feedback/InteractionHapticPlayer';
+import { PremiumProvider } from './src/premium/PremiumProvider';
 import { useRoomPersistence } from './src/store/roomPersistence';
 import { useRoomStore } from './src/store/roomStore';
 import { getBackgroundOption } from './src/theme/backgrounds';
@@ -76,6 +78,7 @@ function AppContent() {
             onToggleSound={() => setAmbienceOn((current) => !current)}
           />
           <WelcomeGuide />
+          <AppSheets />
           <StatusBar style="dark" />
         </ImageBackground>
       </SafeAreaProvider>
@@ -86,7 +89,9 @@ function AppContent() {
 export default function App() {
   return (
     <AppErrorBoundary>
-      <AppContent />
+      <PremiumProvider>
+        <AppContent />
+      </PremiumProvider>
     </AppErrorBoundary>
   );
 }
