@@ -1,58 +1,23 @@
-{
-  "expo": {
-    "name": "Cozy Masjid",
-    "slug": "cozy-masjid",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "backgroundColor": "#F4D8B4",
-    "ios": {
-      "supportsTablet": false,
-      "bundleIdentifier": "com.cozymasjid.app",
-      "appleTeamId": "TRR6U95U5S",
-      "buildNumber": "1",
-      "config": {
-        "usesNonExemptEncryption": false
-      }
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#F6F4EF",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false,
-      "package": "com.cozymasjid.app"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-asset",
-      "expo-font",
-      "expo-sharing",
-      [
-        "expo-media-library",
-        {
-          "photosPermission": false,
-          "savePhotosPermission": "Allow Cozy Masjid to save room snapshots to your Photos library.",
-          "granularPermissions": [
-            "photo"
-          ],
-          "isAccessMediaLocationEnabled": false
-        }
-      ],
-      [
-        "expo-audio",
-        {
-          "microphonePermission": false,
-          "recordAudioAndroid": false,
-          "enableBackgroundPlayback": false,
-          "enableBackgroundRecording": false
-        }
-      ]
-    ]
-  }
-}
+export { PremiumProvider, useIsPremium, usePremium, type PremiumContextValue } from './PremiumProvider';
+export { describeRenewal, deriveEntitlement, isCachedEntitlementStillValid } from './entitlement';
+export {
+  FREE_CATALOG_ITEM_IDS,
+  isContentLocked,
+  isPremiumBackground,
+  isPremiumBuilding,
+  isPremiumCatalogItem,
+} from './premiumContent';
+export {
+  defaultSelectedPlanId,
+  getPlan,
+  premiumPlans,
+  PREMIUM_PRODUCT_IDS,
+} from './products';
+export type {
+  PremiumActivity,
+  PremiumEntitlement,
+  PremiumFeedback,
+  PremiumPlan,
+  PremiumPlanId,
+  StoreStatus,
+} from './types';
