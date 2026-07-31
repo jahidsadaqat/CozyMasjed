@@ -27,9 +27,9 @@ TestFlight build. Your existing Codemagic pipeline already produces one.
 
 ```ts
 export const PREMIUM_PRODUCT_IDS = {
-  weekly: 'cozymasjid_weekly',     // ← replace
-  monthly: 'cozymasjid_monthly',   // ← replace
-  lifetime: 'cozymasjid_lifetime', // ← replace
+  weekly: 'com.cozymasjid.premium.weekly',
+  monthly: 'com.cozymasjid.premium.monthly',
+  lifetime: 'com.cozymasjid.lifetime',
 } as const;
 ```
 
@@ -41,9 +41,10 @@ before StoreKit answers, or if the device is offline.
 While you are in that file, also confirm `src/config/appLinks.ts`:
 
 ```ts
-privacyPolicy: 'https://example.com/privacy',  // ← replace
-termsOfUse:    'https://example.com/terms',    // ← replace
-supportEmail:  'support@example.com',          // ← replace
+marketing:     'https://scandinaviarest.com/app-info/cozy-masjid/',
+privacyPolicy: 'https://scandinaviarest.com/app-info/cozy-masjid/privacy',
+termsOfUse:    'https://scandinaviarest.com/app-info/cozy-masjid/terms',
+support:       'https://scandinaviarest.com/app-info/cozy-masjid/support',
 ```
 
 App Review opens both links from the paywall. Dead links are a rejection.
@@ -72,9 +73,9 @@ without double-paying, and Apple handles the proration.
 | Field | Weekly | Monthly |
 |---|---|---|
 | Reference Name | Cozy Masjid Weekly | Cozy Masjid Monthly |
-| Product ID | `cozymasjid_weekly` | `cozymasjid_monthly` |
+| Product ID | `com.cozymasjid.premium.weekly` | `com.cozymasjid.premium.monthly` |
 | Duration | 1 Week | 1 Month |
-| Price | $4.99 (Tier for USD) | $12.99 (Tier for USD) |
+| Price | $7.99 (Tier for USD) | $19.99 (Tier for USD) |
 | Subscription Group | Cozy Masjid Premium | Cozy Masjid Premium |
 
 For each one, add under **App Store Localization** (English, plus any other
@@ -92,8 +93,8 @@ upgrade is immediate and a downgrade waits for the period to end.
 | Field | Value |
 |---|---|
 | Reference Name | Cozy Masjid Lifetime |
-| Product ID | `cozymasjid_lifetime` |
-| Price | $49.99 |
+| Product ID | `com.cozymasjid.lifetime` |
+| Price | $59.99 |
 
 Add localized Display Name and Description here too.
 
@@ -114,9 +115,10 @@ Suggested review note:
 
 - **App Privacy** questionnaire completed (you collect no data — declare that).
 - **App Review Information → Notes**: repeat where the paywall lives.
-- If you have no custom EULA, point Terms of Use at Apple's standard EULA:
-  `https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`
-  Otherwise host your own and use that URL.
+- **Marketing URL**: `https://scandinaviarest.com/app-info/cozy-masjid/`
+- **Privacy Policy URL**: `https://scandinaviarest.com/app-info/cozy-masjid/privacy`
+- **Support URL**: `https://scandinaviarest.com/app-info/cozy-masjid/support`
+- **Terms / custom EULA**: `https://scandinaviarest.com/app-info/cozy-masjid/terms`
 - Submit the IAP products **with** the app build the first time. They are
   reviewed together.
 
@@ -227,14 +229,14 @@ exactly the safety net you want.
 
 ## 7. A note on the pricing
 
-Weekly at $4.99 works out to roughly $21.60 per month — still well above the
-$12.99 monthly plan, and it passes the monthly price after three weeks. That is
+Weekly at $7.99 works out to roughly $34.62 per month — still well above the
+$19.99 monthly plan, and it passes the monthly price after three weeks. That is
 perfectly normal pricing, but a paywall that leads with weekly and hides the
 comparison is the kind of thing App Review flags as misleading. The weekly card
 therefore carries the line *"Three weeks of Weekly costs more than a whole month
 of Monthly."*
 
-Lifetime at $49.99 pays for itself against Monthly in just under four months,
+Lifetime at $59.99 pays for itself against Monthly in three months,
 which is an unusually short payback window. Expect a meaningful share of buyers
 to pick it over the subscription — good for conversion, weaker for recurring
 revenue. Worth watching in your first month of data.

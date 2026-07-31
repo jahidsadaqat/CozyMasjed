@@ -1,6 +1,6 @@
 import { RefreshCw } from 'lucide-react-native';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { appLinks } from '../../config/appLinks';
 import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
@@ -17,7 +17,6 @@ import { InlineNotice } from '../ui/InlineNotice';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { SheetScaffold } from '../ui/SheetScaffold';
 import { BenefitList } from './BenefitList';
-import { MihrabCrest } from './MihrabCrest';
 import { PlanCard } from './PlanCard';
 import { PurchaseSuccessView } from './PurchaseSuccessView';
 
@@ -94,7 +93,12 @@ export function PaywallSheet() {
   return (
     <SheetScaffold accessibilityLabel="Cozy Masjid Premium" onClose={dismiss}>
       <View style={styles.header}>
-        <MihrabCrest isPremium={isPremium} />
+        <Image
+          accessible={false}
+          resizeMode="contain"
+          source={require('../../../assets/premium/paywall-logo.png')}
+          style={styles.logo}
+        />
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.duration(280).delay(60)}
           style={styles.headerCopy}
@@ -237,6 +241,10 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     paddingTop: 4,
+  },
+  logo: {
+    width: 118,
+    height: 118,
   },
   headerCopy: {
     alignItems: 'center',

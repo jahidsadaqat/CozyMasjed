@@ -10,9 +10,9 @@ import type { PremiumPlan, PremiumPlanId } from './types';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export const PREMIUM_PRODUCT_IDS = {
-  weekly: 'cozymasjid_weekly',
-  monthly: 'cozymasjid_monthly',
-  lifetime: 'cozymasjid_lifetime',
+  weekly: 'com.cozymasjid.premium.weekly',
+  monthly: 'com.cozymasjid.premium.monthly',
+  lifetime: 'com.cozymasjid.lifetime',
 } as const satisfies Record<PremiumPlanId, string>;
 
 /** Auto-renewable subscriptions — queried with type `subs`. */
@@ -45,7 +45,7 @@ export const premiumPlans: readonly PremiumPlan[] = [
     title: 'Weekly',
     tagline: 'Try everything for a week',
     periodLabel: 'per week',
-    fallbackPrice: '$4.99',
+    fallbackPrice: '$7.99',
     renewalNote: 'Renews every week until you cancel.',
   },
   {
@@ -55,7 +55,7 @@ export const premiumPlans: readonly PremiumPlan[] = [
     title: 'Monthly',
     tagline: 'Best value for a cozy habit',
     periodLabel: 'per month',
-    fallbackPrice: '$12.99',
+    fallbackPrice: '$19.99',
     renewalNote: 'Renews every month until you cancel.',
     badge: 'Most popular',
   },
@@ -66,7 +66,7 @@ export const premiumPlans: readonly PremiumPlan[] = [
     title: 'Lifetime',
     tagline: 'Pay once, keep it forever',
     periodLabel: 'one-time',
-    fallbackPrice: '$49.99',
+    fallbackPrice: '$59.99',
     renewalNote: 'One payment. No subscription, nothing to cancel.',
   },
 ];

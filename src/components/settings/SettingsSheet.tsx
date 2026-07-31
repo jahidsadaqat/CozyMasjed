@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
-import { Crown, FileText, Info, Mail, RefreshCw, ShieldCheck } from 'lucide-react-native';
+import { Crown, FileText, Globe2, Info, Mail, RefreshCw, ShieldCheck } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
-import { appLinks, buildSupportMailto } from '../../config/appLinks';
+import { appLinks } from '../../config/appLinks';
 import { describeRenewal } from '../../premium/entitlement';
 import { usePremium } from '../../premium/PremiumProvider';
 import { openExternalUrl } from '../../services/openExternalUrl';
@@ -99,6 +99,13 @@ export function SettingsSheet() {
       <Text style={styles.sectionLabel}>About</Text>
       <View style={styles.section}>
         <SettingsRow
+          accessibilityHint="Opens the Cozy Masjid website in your browser"
+          hint="App information and updates"
+          icon={<Globe2 color={palette.ink} size={18} strokeWidth={2.2} />}
+          label="Cozy Masjid website"
+          onPress={() => void openExternalUrl(appLinks.marketing)}
+        />
+        <SettingsRow
           accessibilityHint="Opens the privacy policy in your browser"
           icon={<ShieldCheck color={palette.ink} size={18} strokeWidth={2.2} />}
           label="Privacy Policy"
@@ -111,15 +118,11 @@ export function SettingsSheet() {
           onPress={() => void openExternalUrl(appLinks.termsOfUse)}
         />
         <SettingsRow
-          accessibilityHint="Opens a new mail to support"
-          hint={appLinks.supportEmail}
+          accessibilityHint="Opens Cozy Masjid support in your browser"
+          hint="Help and contact"
           icon={<Mail color={palette.ink} size={18} strokeWidth={2.2} />}
           label="Contact support"
-          onPress={() =>
-            void openExternalUrl(
-              buildSupportMailto({ version: APP_VERSION, build: BUILD_NUMBER }),
-            )
-          }
+          onPress={() => void openExternalUrl(appLinks.support)}
         />
         <SettingsRow
           icon={<Info color={palette.ink} size={18} strokeWidth={2.2} />}
