@@ -34,13 +34,13 @@ export function RoomScene() {
   const [readyBuildingId, setReadyBuildingId] = useState<string | null>(null);
   const profile = weatherVisualProfiles[weather];
   const handleShellReady = useCallback((buildingId: string) => {
+    // A previously requested shell can finish after the user has moved on.
+    // Never let that stale callback unlock the active room's item layer.
+    if (useRoomStore.getState().activeBuildingId !== buildingId) return;
+
     setReadyBuildingId(buildingId);
     invalidate();
   }, [invalidate]);
-
-  useEffect(() => {
-    setReadyBuildingId(null);
-  }, [activeBuildingId]);
 
   return (
     <>
