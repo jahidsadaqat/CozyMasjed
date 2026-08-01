@@ -5,6 +5,7 @@ import { buildingById, type BuildingId } from '../../domain/buildings';
 import { ROOM_FOOTPRINT_SCALE } from '../../domain/grid';
 import { useRoomStore } from '../../store/roomStore';
 import { useModelGLTF } from '../models/useModelGLTF';
+import { DioramaFloorFrame } from './DioramaFloorFrame';
 import { PlacementZoneTargets } from './PlacementZoneTargets';
 
 type PreparedShell = {
@@ -187,6 +188,7 @@ export function ModelRoomShell({
         dispose={null}
         scale={[ROOM_FOOTPRINT_SCALE, 1, ROOM_FOOTPRINT_SCALE]}
       />
+      <DioramaFloorFrame />
       <PlacementZoneTargets buildingId={buildingId} />
     </group>
   );

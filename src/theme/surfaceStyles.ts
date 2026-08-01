@@ -42,39 +42,48 @@ function originalOption(
   };
 }
 
+// Sampled from unobstructed floor areas across the approved room references.
+// The shell shader preserves the authored plank texture and luminance while
+// applying these wood hues, so no grain or floor detail is replaced.
+const referenceFloorOptions = [
+  { value: '#CB9A4F', preview: '#CB9A4F', name: 'Sunlit golden oak' },
+  { value: '#B28547', preview: '#B28547', name: 'Honey oak' },
+  { value: '#AE7046', preview: '#AE7046', name: 'Warm caramel' },
+  { value: '#A2693F', preview: '#A2693F', name: 'Sunset cedar' },
+  { value: '#864127', preview: '#864127', name: 'Twilight walnut' },
+] as const satisfies readonly SurfaceStyleOption[];
+
 const floorOptions: Record<BuildingId, readonly SurfaceStyleOption[]> = {
   'peach-sunrise-room': [
     originalOption('peach-sunrise-room', 'floor'),
-    { value: '#F3D3A7', preview: '#D6A05F', name: 'Desert honey' },
-    { value: '#E7B29B', preview: '#B96F54', name: 'Terracotta oak' },
-    { value: '#D0A088', preview: '#875A45', name: 'Date walnut' },
-    { value: '#E1CFB3', preview: '#B6A17E', name: 'Sand oak' },
+    ...referenceFloorOptions,
   ],
   'violet-dusk-room': [
     originalOption('violet-dusk-room', 'floor'),
-    { value: '#F1D2AD', preview: '#C99362', name: 'Honey oak' },
-    { value: '#D7AF91', preview: '#9B684C', name: 'Warm walnut' },
-    { value: '#B89278', preview: '#6F5141', name: 'Deep walnut' },
-    { value: '#D1C6BB', preview: '#92867D', name: 'Soft stone oak' },
+    ...referenceFloorOptions,
   ],
 };
+
+// Sampled from the four wall finishes in the approved "Favorite Sky"
+// reference artwork. Keep value and preview identical so the swatch is an
+// honest representation of the hue sent to the room-shell tint shader.
+const referenceWallOptions = [
+  { value: '#7C4558', preview: '#7C4558', name: 'Heritage mauve' },
+  { value: '#418A70', preview: '#418A70', name: 'Masjid teal' },
+  { value: '#4F728D', preview: '#4F728D', name: 'Noor blue' },
+  { value: '#53385F', preview: '#53385F', name: 'Twilight plum' },
+] as const satisfies readonly SurfaceStyleOption[];
 
 const wallOptions: Record<BuildingId, readonly SurfaceStyleOption[]> = {
   'peach-sunrise-room': [
     originalOption('peach-sunrise-room', 'walls'),
     { value: '#DAB77E', preview: '#F6E2C7', name: 'Warm ivory' },
-    { value: '#B79762', preview: '#D8C49E', name: 'Desert sand' },
-    { value: '#82966E', preview: '#C8D1BC', name: 'Olive sage' },
-    { value: '#B87D70', preview: '#DAB6AD', name: 'Clay blush' },
-    { value: '#7795A2', preview: '#BECED2', name: 'Dawn blue' },
+    ...referenceWallOptions,
   ],
   'violet-dusk-room': [
     originalOption('violet-dusk-room', 'walls'),
     { value: '#D8B77F', preview: '#F4E6C8', name: 'Warm ivory' },
-    { value: '#7F9A6B', preview: '#C8D8BF', name: 'Masjid sage' },
-    { value: '#B77F89', preview: '#D8B6BE', name: 'Dusty rose' },
-    { value: '#7898B0', preview: '#B9CBD9', name: 'Noor blue' },
-    { value: '#937FA8', preview: '#CDB9D7', name: 'Soft lilac' },
+    ...referenceWallOptions,
   ],
 };
 
